@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
-import { KeyRound, User, ArrowRight, Sparkles, MessageCircle, Hash, Users, Settings, Search, Bell, Send, Paperclip, Smile, MoreVertical, ShieldAlert, FileText, Image as ImageIcon, Plus, Link, LogOut } from 'lucide-react';
+import { KeyRound, User, ArrowRight, Sparkles, MessageCircle, Hash, Users, Settings, Search, Bell, Send, Paperclip, Smile, MoreVertical, ShieldAlert, FileText, Image as ImageIcon, Plus, Link, LogOut, PenTool, Menu } from 'lucide-react';
+import Whiteboard from './components/Whiteboard';
 
 const socket = io('http://localhost:3005');
 
@@ -164,6 +165,10 @@ const Dashboard = () => {
   const [newCommVisibility, setNewCommVisibility] = useState('public');
   const [newCommRetentionMode, setNewCommRetentionMode] = useState('30d');
   const [showMenu, setShowMenu] = useState(false);
+  const [showWhiteboard, setShowWhiteboard] = useState(false);
+  const [showSidebar, setShowSidebar] = useState(true);
+  const [chatWidth, setChatWidth] = useState(50);
+  const [isDragging, setIsDragging] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [user, setUser] = useState<any>(JSON.parse(localStorage.getItem('user') || '{}'));
   const [profileName, setProfileName] = useState(user.displayName || user.id);
@@ -262,6 +267,29 @@ const Dashboard = () => {
   }, [communities, directChats, user]);
 
   useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDragging) return;
+      const newWidth = (e.clientX / window.innerWidth) * 100;
+      setChatWidth(Math.max(20, Math.min(newWidth, 80)));
+    };
+    const handleMouseUp = () => setIsDragging(false);
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    } else {
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
+  useEffect(() => {
     const handleReceiveMessage = (msg: any) => {
       const activeRoomId = activeCommunity ? activeCommunity.id : (activeDm ? [user.id, activeDm.sender?.id === user.id ? activeDm.receiver?.id : activeDm.sender?.id].sort().join('_') : null);
 
@@ -276,9 +304,15 @@ const Dashboard = () => {
       }
     };
 
+    const handleWhiteboardToggle = ({ isOpen }: { isOpen: boolean }) => {
+      setShowWhiteboard(isOpen);
+    };
+
     socket.on('receive_message', handleReceiveMessage);
+    socket.on('whiteboard_toggle', handleWhiteboardToggle);
     return () => {
       socket.off('receive_message', handleReceiveMessage);
+      socket.off('whiteboard_toggle', handleWhiteboardToggle);
     };
   }, [activeCommunity, activeDm, user.id]);
 
@@ -387,7 +421,7 @@ const Dashboard = () => {
     <div className="flex h-screen w-full bg-[var(--color-canvas)] text-[var(--color-primary)] font-sans overflow-hidden">
 
       {/* 1. Icon Rail (Far Left) */}
-      <div className="w-[72px] bg-white border-r border-gray-200 flex flex-col items-center py-6 shadow-sm z-20 flex-shrink-0">
+      <div className={`w-[72px] bg-white border-r border-gray-200 flex-col items-center py-6 shadow-sm flex-shrink-0 ${showSidebar ? 'flex absolute md:relative z-50 h-full left-0' : 'hidden'}`}>
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center mb-8 shadow-md shadow-teal-500/20 text-white cursor-pointer hover:scale-105 transition-transform">
           <Sparkles className="w-6 h-6" />
         </div>
@@ -469,7 +503,7 @@ const Dashboard = () => {
       </div>
 
       {/* 2. List Panel (Chats & Communities) */}
-      <div className="w-80 bg-[#f8fafc] border-r border-gray-200 flex flex-col flex-shrink-0 z-10">
+      <div className={`w-80 bg-[#f8fafc] border-r border-gray-200 flex-col flex-shrink-0 z-40 ${showSidebar ? 'flex absolute md:relative left-[72px] md:left-0 h-full shadow-2xl md:shadow-none' : 'hidden'}`}>
         <div className="p-6 pb-4">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold tracking-tight text-gray-800">Messages</h2>
@@ -583,8 +617,15 @@ const Dashboard = () => {
       <div className="flex-1 flex flex-col bg-white relative shadow-[-10px_0_30px_-15px_rgba(0,0,0,0.05)] z-20">
         {/* Top Header */}
         <div className="h-[72px] bg-white border-b border-gray-100 flex items-center justify-between px-6 z-10 sticky top-0 flex-shrink-0">
-          <div>
-            <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setShowSidebar(!showSidebar)}
+              className="p-2 -ml-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div>
+              <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
               {activeCommunity ? activeCommunity.name : (activeDm ? (activeDm.sender?.id === user.id ? activeDm.receiver?.displayName : activeDm.sender?.displayName) : 'Select a chat')}
             </h1>
             <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
@@ -595,9 +636,25 @@ const Dashboard = () => {
               </span>
             </div>
           </div>
+          </div>
           <div className="flex gap-2">
+            {activeCommunity?.name === 'System Design' && (
+              <button 
+                onClick={() => {
+                  const newState = !showWhiteboard;
+                  setShowWhiteboard(newState);
+                  if (newState) {
+                    socket.emit('whiteboard_toggle', { roomId: activeCommunity.id, isOpen: newState });
+                  }
+                }} 
+                className={`p-2 rounded-xl transition-colors ${showWhiteboard ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                title="Toggle Whiteboard"
+              >
+                <PenTool className="w-5 h-5" />
+              </button>
+            )}
             <div className="relative">
-              <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+              <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
                 <MoreVertical className="w-5 h-5" />
               </button>
               {showMenu && (
@@ -632,7 +689,12 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Message Thread */}
+        <div className="flex-1 flex overflow-hidden">
+          <div 
+            className="flex flex-col min-w-[300px] flex-shrink-0" 
+            style={{ width: showWhiteboard ? `${chatWidth}%` : '100%', flex: showWhiteboard ? 'none' : '1 1 0%' }}
+          >
+            {/* Message Thread */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#fcfcfd]">
           {messages.map((msg, i) => {
             const senderId = msg.senderId || msg.sender?.id;
@@ -747,6 +809,22 @@ const Dashboard = () => {
           <div className="text-center mt-2">
             <span className="text-[10px] text-gray-400 font-medium">Messages in this chat disappear after 30 days</span>
           </div>
+        </div>
+        </div>
+        {showWhiteboard && (
+          <>
+            <div 
+              className="w-1 cursor-col-resize bg-gray-200 hover:bg-teal-400 active:bg-teal-500 transition-colors z-50 flex-shrink-0"
+              onMouseDown={() => setIsDragging(true)}
+            />
+            <div className="flex-1 border-l border-gray-200 min-w-0">
+              <Whiteboard 
+                roomId={activeCommunity ? activeCommunity.id : [user.id, activeDm.sender?.id === user.id ? activeDm.receiver?.id : activeDm.sender?.id].sort().join('_')} 
+                socket={socket} 
+              />
+            </div>
+          </>
+        )}
         </div>
       </div>
 

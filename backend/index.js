@@ -26,7 +26,7 @@ const io = new Server(server, {
 
 // Seed default communities
 const seedCommunities = async () => {
-  const defaults = ['Engineering', 'Design', 'Product'];
+  const defaults = ['Engineering', 'Design', 'Product', 'System Design'];
   for (const name of defaults) {
     const existing = await Community.findOne({ where: { name } });
     if (!existing) {
@@ -280,13 +280,17 @@ app.get('/api/dms', authenticateToken, async (req, res) => {
   }
 });
 
+// Whiteboard in-memory state
+const whiteboardStates = {};
+
 // Socket.IO Logic
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
   socket.on('join_community', (communityId) => {
-    socket.join(communityId);
-    console.log(`Socket ${socket.id} joined ${communityId}`);
+    const rId = String(communityId);
+    socket.join(rId);
+    console.log(`Socket ${socket.id} joined ${rId}`);
   });
 
   socket.on('send_message', async (data) => {
@@ -336,10 +340,43 @@ io.on('connection', (socket) => {
         }
       };
 
-      io.to(communityId).emit('receive_message', fullMsg);
+      io.to(String(communityId)).emit('receive_message', fullMsg);
     } catch (err) {
       console.error(err);
     }
+  });
+
+  socket.on('whiteboard_update', ({ roomId, changes }) => {
+    const rId = String(roomId);
+    if (!whiteboardStates[rId]) whiteboardStates[rId] = {};
+    
+    if (changes.added) {
+      Object.values(changes.added).forEach(record => {
+        whiteboardStates[rId][record.id] = record;
+      });
+    }
+    if (changes.updated) {
+      Object.values(changes.updated).forEach(recordPair => {
+        whiteboardStates[rId][recordPair[1].id] = recordPair[1];
+      });
+    }
+    if (changes.removed) {
+      Object.values(changes.removed).forEach(record => {
+        delete whiteboardStates[rId][record.id];
+      });
+    }
+
+    socket.to(rId).emit('whiteboard_update', { changes });
+  });
+
+  socket.on('request_whiteboard', ({ roomId }) => {
+    const rId = String(roomId);
+    const records = whiteboardStates[rId] ? Object.values(whiteboardStates[rId]) : [];
+    socket.emit('whiteboard_init', { records });
+  });
+
+  socket.on('whiteboard_toggle', ({ roomId, isOpen }) => {
+    socket.to(String(roomId)).emit('whiteboard_toggle', { isOpen });
   });
 
   socket.on('disconnect', () => {
