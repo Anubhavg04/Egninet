@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
-import { KeyRound, User, ArrowRight, Sparkles, MessageCircle, Hash, Users, Settings, Search, Bell, Send, Paperclip, Smile, MoreVertical, ShieldAlert, FileText, Image as ImageIcon, Plus } from 'lucide-react';
+import { KeyRound, User, ArrowRight, Sparkles, MessageCircle, Hash, Users, Settings, Search, Bell, Send, Paperclip, Smile, MoreVertical, ShieldAlert, FileText, Image as ImageIcon, Plus, Link, LogOut } from 'lucide-react';
 
 const socket = io('http://localhost:3005');
 
@@ -158,10 +158,12 @@ const Dashboard = () => {
   const [showEmoji, setShowEmoji] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showDirectChatsMenu, setShowDirectChatsMenu] = useState(false);
   const [newCommName, setNewCommName] = useState('');
   const [newCommDesc, setNewCommDesc] = useState('');
   const [newCommVisibility, setNewCommVisibility] = useState('public');
   const [newCommRetentionMode, setNewCommRetentionMode] = useState('30d');
+  const [showMenu, setShowMenu] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
   const [user, setUser] = useState<any>(JSON.parse(localStorage.getItem('user') || '{}'));
   const [profileName, setProfileName] = useState(user.displayName || user.id);
@@ -171,6 +173,7 @@ const Dashboard = () => {
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
   const [directChats, setDirectChats] = useState<any[]>([]);
   const [activeDm, setActiveDm] = useState<any>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -199,7 +202,21 @@ const Dashboard = () => {
       const resDms = await fetch('http://localhost:3005/api/dms', { headers: { 'Authorization': `Bearer ${token}` } });
       setDirectChats(await resDms.json());
     } catch (err) {
-      console.error('Error fetching DMs', err);
+      console.error('Error fetching dms', err);
+    }
+  };
+
+  const acceptRequest = async (requestId: string) => {
+    const token = localStorage.getItem('token');
+    try {
+      await fetch('http://localhost:3005/api/dms/accept', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ requestId })
+      });
+      fetchDms();
+    } catch (err) {
+      console.error('Error accepting request', err);
     }
   };
 
@@ -234,12 +251,42 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    if (user && user.id) {
+      communities.forEach(c => socket.emit('join_community', c.id));
+      directChats.forEach(dm => {
+        const partnerId = dm.sender?.id === user.id ? dm.receiver?.id : dm.sender?.id;
+        const roomId = [user.id, partnerId].sort().join('_');
+        socket.emit('join_community', roomId);
+      });
+    }
+  }, [communities, directChats, user]);
+
+  useEffect(() => {
+    const handleReceiveMessage = (msg: any) => {
+      const activeRoomId = activeCommunity ? activeCommunity.id : (activeDm ? [user.id, activeDm.sender?.id === user.id ? activeDm.receiver?.id : activeDm.sender?.id].sort().join('_') : null);
+
+      if (msg.communityId === activeRoomId) {
+        setMessages(prev => [...prev, msg]);
+        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+      } else {
+        setUnreadCounts(prev => ({
+          ...prev,
+          [msg.communityId]: (prev[msg.communityId] || 0) + 1
+        }));
+      }
+    };
+
+    socket.on('receive_message', handleReceiveMessage);
+    return () => {
+      socket.off('receive_message', handleReceiveMessage);
+    };
+  }, [activeCommunity, activeDm, user.id]);
+
+  useEffect(() => {
     if (!activeCommunity && !activeDm) return;
 
     // For MVP, we will treat DM as joining a special room composed of both IDs sorted
-    const roomId = activeCommunity ? activeCommunity.id : [user.id, activeDm.senderId === user.id ? activeDm.receiverId : activeDm.senderId].sort().join('_');
-
-    socket.emit('join_community', roomId);
+    const roomId = activeCommunity ? activeCommunity.id : [user.id, activeDm.sender?.id === user.id ? activeDm.receiver?.id : activeDm.sender?.id].sort().join('_');
 
     const fetchMessages = async () => {
       const token = localStorage.getItem('token');
@@ -270,18 +317,6 @@ const Dashboard = () => {
 
     fetchMessages();
     fetchMembers();
-
-    const handleReceiveMessage = (msg: any) => {
-      if (msg.communityId === roomId) {
-        setMessages(prev => [...prev, msg]);
-        setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
-      }
-    };
-
-    socket.on('receive_message', handleReceiveMessage);
-    return () => {
-      socket.off('receive_message', handleReceiveMessage);
-    };
   }, [activeCommunity, activeDm]);
 
   const requestDm = async (receiverId: string) => {
@@ -294,43 +329,25 @@ const Dashboard = () => {
     alert('DM Request Sent!');
   };
 
-  const acceptDm = async (requestId: string) => {
-    const token = localStorage.getItem('token');
-    await fetch('http://localhost:3005/api/dms/accept', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify({ requestId })
-    });
-    fetchDms();
-  };
-
   const handleSendMessage = async () => {
     if ((!inputMessage.trim() && !attachment) || (!activeCommunity && !activeDm)) return;
 
-    const roomId = activeCommunity ? activeCommunity.id : [user.id, activeDm.senderId === user.id ? activeDm.receiverId : activeDm.senderId].sort().join('_');
-
-
-    let attachmentUrl = null;
-    let attachmentType = null;
-
+    let attachmentUrl = '';
+    let attachmentType = '';
     if (attachment) {
       const formData = new FormData();
       formData.append('file', attachment);
-      try {
-        const token = localStorage.getItem('token');
-        const res = await fetch('http://localhost:3005/api/upload', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-          body: formData
-        });
-        const data = await res.json();
-        attachmentUrl = data.url;
-        attachmentType = data.type;
-      } catch (err) {
-        console.error('File upload failed', err);
-      }
+      const res = await fetch('http://localhost:3005/api/upload', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: formData
+      });
+      const data = await res.json();
+      attachmentUrl = data.url;
+      attachmentType = data.type;
     }
 
+    const roomId = activeCommunity ? activeCommunity.id : [user.id, activeDm.sender?.id === user.id ? activeDm.receiver?.id : activeDm.sender?.id].sort().join('_');
     socket.emit('send_message', {
       text: inputMessage,
       senderId: user.id,
@@ -375,12 +392,44 @@ const Dashboard = () => {
           <Sparkles className="w-6 h-6" />
         </div>
 
-        <div className="flex flex-col gap-6 flex-1 w-full items-center">
-          <button className="p-3 rounded-xl bg-teal-50 text-teal-600 relative group transition-colors">
+        <div className="flex flex-col gap-6 flex-1 w-full items-center relative">
+          <button onClick={() => setShowDirectChatsMenu(!showDirectChatsMenu)} className={`p-3 rounded-xl transition-colors relative group ${showDirectChatsMenu ? 'bg-teal-50 text-teal-600' : 'bg-gray-50 text-gray-400 hover:bg-teal-50 hover:text-teal-600'}`}>
             <MessageCircle className="w-6 h-6" />
-            <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
           </button>
-
+          
+          {showDirectChatsMenu && (
+            <div className="absolute left-16 top-0 bg-white shadow-xl rounded-xl border border-gray-100 w-72 overflow-hidden z-50 animate-in slide-in-from-left-2 fade-in">
+              <div className="p-4 border-b border-gray-50 flex items-center justify-between">
+                <h3 className="text-sm font-bold text-gray-800">Direct Chats</h3>
+                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full font-semibold">{directChats.length}</span>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {directChats.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-gray-400">No active direct chats.</div>
+                ) : (
+                  directChats.map(dm => {
+                    const partner = dm.senderId === user.id ? dm.receiver : dm.sender;
+                    return (
+                      <div 
+                        key={dm.id} 
+                        onClick={() => { setActiveDm(dm); setActiveCommunity(null); setShowDirectChatsMenu(false); }}
+                        className="p-3 border-b border-gray-50 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative">
+                            <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${partner.id}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} className="w-8 h-8 rounded-full border border-gray-200" />
+                            <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${!partner.status || partner.status === 'online' ? 'bg-green-500' : partner.status === 'away' ? 'bg-yellow-500' : partner.status === 'dnd' ? 'bg-red-500' : 'bg-gray-400'}`}></span>
+                          </div>
+                          <span className="text-sm font-semibold text-gray-800 truncate">{partner.displayName}</span>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )}
+          
           <button onClick={() => setShowCreateModal(true)} className="p-3 rounded-xl bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-teal-600 transition-colors group relative">
             <Plus className="w-6 h-6" />
             <div className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded hidden group-hover:block whitespace-nowrap z-50">Create Community</div>
@@ -440,6 +489,26 @@ const Dashboard = () => {
         </div>
 
         <div className="flex-1 overflow-y-auto px-4 pb-4 space-y-6">
+          {/* Section: Pending DMs */}
+          {pendingRequests.length > 0 && (
+            <div className="mt-8 mb-4">
+              <div className="text-xs font-semibold text-teal-600 uppercase tracking-wider px-2 mb-2 flex items-center gap-2">
+                <Bell className="w-3.5 h-3.5" /> Pending Requests
+              </div>
+              <div className="space-y-2">
+                {pendingRequests.map(req => (
+                  <div key={req.id} className="flex items-center justify-between gap-2 p-3 bg-white shadow-sm border border-teal-100 rounded-xl">
+                    <div className="flex items-center gap-2">
+                      <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${req.sender.id}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} className="w-6 h-6 rounded-full" />
+                      <span className="text-sm font-semibold truncate text-gray-800">{req.sender.displayName}</span>
+                    </div>
+                    <button onClick={() => acceptRequest(req.id)} className="bg-teal-500 hover:bg-teal-600 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition-colors shadow-sm">Accept</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between mt-8 mb-4">
             <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2">Your Communities</h2>
             <span className="bg-gray-200 text-gray-500 text-[10px] px-1.5 py-0.5 rounded-md">{communities.length}</span>
@@ -448,14 +517,21 @@ const Dashboard = () => {
             {communities.map((comm, i) => (
               <div
                 key={comm.id}
-                onClick={() => { setActiveCommunity(comm); setActiveDm(null); }}
+                onClick={() => { setActiveCommunity(comm); setActiveDm(null); setUnreadCounts(prev => ({ ...prev, [comm.id]: 0 })); }}
                 className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${activeCommunity?.id === comm.id ? 'bg-white shadow-sm border border-gray-100' : 'hover:bg-gray-100/50 text-gray-600'}`}
               >
-                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm bg-indigo-500`}>
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-white font-bold text-sm bg-indigo-500 relative`}>
                   <Hash className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-sm truncate">{comm.name}</div>
+                  <div className="font-semibold text-sm truncate flex items-center justify-between">
+                    {comm.name}
+                    {unreadCounts[comm.id] > 0 && (
+                      <span className="bg-teal-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                        {unreadCounts[comm.id]}
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-gray-400 truncate">Tap to open</div>
                 </div>
               </div>
@@ -469,20 +545,30 @@ const Dashboard = () => {
               {directChats.length === 0 ? (
                 <div className="text-xs text-gray-400 px-2 italic">No active direct chats.</div>
               ) : (
-                directChats.map(dm => {
-                  const partner = dm.senderId === user.id ? dm.receiver : dm.sender;
+                Array.from(new Map(directChats.map(dm => {
+                  const partner = dm.sender?.id === user.id ? dm.receiver : dm.sender;
+                  return [partner?.id, { dm, partner }];
+                })).values()).map(({ dm, partner }) => {
+                  const dmRoomId = [user.id, partner.id].sort().join('_');
                   return (
                     <div
                       key={dm.id}
-                      onClick={() => { setActiveDm(dm); setActiveCommunity(null); }}
+                      onClick={() => { setActiveDm(dm); setActiveCommunity(null); setUnreadCounts(prev => ({ ...prev, [dmRoomId]: 0 })); }}
                       className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-colors ${activeDm?.id === dm.id ? 'bg-white shadow-sm border border-gray-100' : 'hover:bg-gray-100/50 text-gray-600'}`}
                     >
                       <div className="relative">
                         <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${partner.id}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt={partner.displayName} className="w-10 h-10 rounded-full border border-gray-200" />
-                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white bg-green-500"></span>
+                        <span className={`absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full border-2 border-white ${!partner.status || partner.status === 'online' ? 'bg-green-500' : partner.status === 'away' ? 'bg-yellow-500' : partner.status === 'dnd' ? 'bg-red-500' : 'bg-gray-400'}`}></span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm text-gray-800 truncate">{partner.displayName}</div>
+                        <div className="font-semibold text-sm text-gray-800 truncate flex items-center justify-between">
+                          {partner.displayName}
+                          {unreadCounts[dmRoomId] > 0 && (
+                            <span className="bg-teal-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                              {unreadCounts[dmRoomId]}
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );
@@ -499,7 +585,7 @@ const Dashboard = () => {
         <div className="h-[72px] bg-white border-b border-gray-100 flex items-center justify-between px-6 z-10 sticky top-0 flex-shrink-0">
           <div>
             <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              {activeCommunity ? activeCommunity.name : (activeDm ? (activeDm.senderId === user.id ? activeDm.receiver.displayName : activeDm.sender.displayName) : 'Select a chat')}
+              {activeCommunity ? activeCommunity.name : (activeDm ? (activeDm.sender?.id === user.id ? activeDm.receiver?.displayName : activeDm.sender?.displayName) : 'Select a chat')}
             </h1>
             <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
               {activeCommunity && <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Members</span>}
@@ -510,38 +596,47 @@ const Dashboard = () => {
             </div>
           </div>
           <div className="flex gap-2">
-            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
-              <Search className="w-5 h-5" />
-            </button>
             <div className="relative">
-              <button onClick={() => setShowNotifications(!showNotifications)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors relative">
-                <Bell className="w-5 h-5" />
-                {pendingRequests.length > 0 && <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>}
+              <button onClick={() => setShowMenu(!showMenu)} className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
+                <MoreVertical className="w-5 h-5" />
               </button>
-              {showNotifications && (
-                <div className="absolute right-0 top-12 w-64 bg-white border border-gray-100 shadow-xl rounded-xl p-3 z-50">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Pending DMs</h4>
-                  {pendingRequests.length === 0 ? <div className="text-sm text-gray-400">No pending requests</div> : (
-                    pendingRequests.map(req => (
-                      <div key={req.id} className="flex items-center justify-between gap-2 p-2 bg-gray-50 rounded-lg">
-                        <span className="text-sm font-semibold truncate">{req.sender.displayName}</span>
-                        <button onClick={() => acceptDm(req.id)} className="bg-teal-500 text-white text-xs px-2 py-1 rounded-md">Accept</button>
-                      </div>
-                    ))
-                  )}
+              {showMenu && (
+                <div className="absolute right-0 top-12 w-48 bg-white border border-gray-100 shadow-xl rounded-xl overflow-hidden z-50">
+                  <div className="py-1">
+                    <button 
+                      onClick={() => {
+                        navigator.clipboard.writeText(window.location.href);
+                        alert('Community Link Copied!');
+                        setShowMenu(false);
+                      }} 
+                      className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
+                    >
+                      <Link className="w-4 h-4 text-gray-400" />
+                      Share Link
+                    </button>
+                    <button 
+                      onClick={() => {
+                        alert('You left the community.');
+                        setShowMenu(false);
+                        setActiveCommunity(null);
+                      }} 
+                      className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4 text-red-400" />
+                      Leave Community
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
-            <button className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition-colors">
-              <MoreVertical className="w-5 h-5" />
-            </button>
           </div>
         </div>
 
         {/* Message Thread */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#fcfcfd]">
           {messages.map((msg, i) => {
-            const isMine = msg.senderId === user.id;
+            const senderId = msg.senderId || msg.sender?.id;
+            const isMine = senderId === user.id;
             const msgDate = new Date(msg.createdAt);
             const prevMsgDate = i > 0 ? new Date(messages[i - 1].createdAt) : null;
 
@@ -573,11 +668,11 @@ const Dashboard = () => {
                   </div>
                 )}
                 <div className={`flex gap-4 max-w-[80%] ${isMine ? 'flex-row-reverse self-end ml-auto' : ''}`}>
-                  <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${msg.senderId}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt={msg.senderId} className={`w-10 h-10 rounded-full border mt-1 ${isMine ? 'border-teal-100' : 'border-gray-200'}`} />
+                  <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${senderId}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt={senderId} className={`w-10 h-10 rounded-full border mt-1 ${isMine ? 'border-teal-100' : 'border-gray-200'}`} />
                   <div className={`flex flex-col ${isMine ? 'items-end' : ''}`}>
                     <div className={`flex items-baseline gap-2 mb-1.5 ${isMine ? 'mr-1' : 'ml-1'}`}>
                       {isMine && <span className="text-xs text-gray-400 font-medium">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-                      <span className="font-semibold text-sm text-gray-800">{isMine ? 'You' : msg.sender?.displayName || msg.senderId}</span>
+                      <span className="font-semibold text-sm text-gray-800">{isMine ? 'You' : msg.sender?.displayName || senderId}</span>
                       {!isMine && <span className="text-xs text-gray-400 font-medium">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                     </div>
                     <div className={`p-4 rounded-2xl shadow-sm text-[15px] leading-relaxed inline-block ${isMine ? 'bg-gradient-to-br from-teal-500 to-teal-600 rounded-tr-none text-white shadow-teal-500/20' : 'bg-white border border-gray-100 rounded-tl-none text-gray-700'}`}>
@@ -682,7 +777,7 @@ const Dashboard = () => {
                   <div className="flex items-center gap-3 overflow-hidden">
                     <div className="relative flex-shrink-0">
                       <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${member.id}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt={member.displayName} className="w-8 h-8 rounded-full border border-gray-200" />
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#f8fafc] ${member.status === 'online' ? 'bg-green-500' : member.status === 'away' ? 'bg-yellow-500' : 'bg-gray-400'}`}></span>
+                      <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-[#f8fafc] ${!member.status || member.status === 'online' ? 'bg-green-500' : member.status === 'away' ? 'bg-yellow-500' : member.status === 'dnd' ? 'bg-red-500' : 'bg-gray-400'}`}></span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-sm text-gray-800 truncate">{member.displayName} {member.id === user.id && '(You)'}</div>

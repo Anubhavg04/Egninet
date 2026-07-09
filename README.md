@@ -14,7 +14,7 @@ EngiNet is a real-time community and messaging platform designed for engineers a
 ## Tech Stack
 
 - **Frontend**: React, TypeScript, Tailwind CSS, Vite, Lucide Icons, Socket.io-client.
-- **Backend**: Node.js, Express, SQLite (Sequelize ORM), Socket.io, JSON Web Tokens (JWT).
+- **Backend**: Node.js, Express, PostgreSQL (Sequelize ORM), Socket.io, JSON Web Tokens (JWT).
 
 ## Getting Started
 

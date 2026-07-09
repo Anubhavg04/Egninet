@@ -7,7 +7,16 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const { sequelize, User, Community, Membership, Message, DMRequest } = require('./database');
+const mongoose = require('mongoose');
+require('dotenv').config();
+const { sequelize, User, Community, Membership, DMRequest } = require('./database');
+const Message = require('./models/Message');
+
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/enginet').then(() => {
+  console.log('Connected to MongoDB');
+}).catch(err => {
+  console.error('MongoDB connection error:', err);
+});
 
 const app = express();
 const server = http.createServer(app);
@@ -130,7 +139,8 @@ app.put('/api/users/profile', authenticateToken, async (req, res) => {
 app.get('/api/communities', authenticateToken, async (req, res) => {
   try {
     const communities = await Community.findAll();
-    res.json(communities);
+    const filtered = communities.filter(c => c.name !== 'Direct Message');
+    res.json(filtered);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -162,12 +172,21 @@ app.post('/api/communities', authenticateToken, async (req, res) => {
 
 app.get('/api/communities/:id/messages', authenticateToken, async (req, res) => {
   try {
-    const messages = await Message.findAll({
-      where: { communityId: req.params.id },
-      include: [{ model: User, as: 'sender', attributes: ['id', 'displayName', 'avatarId', 'status'] }],
-      order: [['createdAt', 'ASC']]
-    });
-    res.json(messages);
+    const messages = await Message.find({ communityId: req.params.id }).sort({ createdAt: 1 });
+    const formattedMessages = messages.map(msg => ({
+      id: msg._id,
+      text: msg.text,
+      createdAt: msg.createdAt,
+      attachmentUrl: msg.attachmentUrl,
+      attachmentType: msg.attachmentType,
+      sender: {
+        id: msg.senderId,
+        displayName: msg.senderDisplayName,
+        avatarId: msg.senderAvatarId,
+        status: msg.senderStatus
+      }
+    }));
+    res.json(formattedMessages);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -242,7 +261,20 @@ app.get('/api/dms', authenticateToken, async (req, res) => {
     });
     // Filter to only those involving the current user
     const userDms = reqs.filter(r => r.senderId === req.user.id || r.receiverId === req.user.id);
-    res.json(userDms);
+
+    const uniqueDms = [];
+    const seenPartners = new Set();
+    for (const r of userDms) {
+      const partnerId = r.senderId === req.user.id ? r.receiverId : r.senderId;
+      console.log('Processing r:', r.id, 'sender:', r.senderId, 'receiver:', r.receiverId, 'partner:', partnerId);
+      if (!seenPartners.has(partnerId)) {
+        seenPartners.add(partnerId);
+        uniqueDms.push(r);
+      }
+    }
+    
+    console.log('uniqueDms length:', uniqueDms.length);
+    res.json(uniqueDms);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -268,10 +300,41 @@ io.on('connection', (socket) => {
         expiresAt.setHours(expiresAt.getHours() + 24);
       }
 
-      const msg = await Message.create({ text, senderId, communityId, expiresAt, attachmentUrl, attachmentType });
-      const fullMsg = await Message.findByPk(msg.id, {
-        include: [{ model: User, as: 'sender', attributes: ['id', 'displayName', 'avatarId', 'status'] }]
+      // For DMs, the communityId is a combined string (e.g., user1_user2).
+      // Ensure a Community record exists to satisfy foreign key constraints.
+      let comm = await Community.findByPk(communityId);
+      if (!comm) {
+        await Community.create({ id: communityId, name: 'Direct Message', visibility: 'private' });
+      }
+
+      const senderUser = await User.findByPk(senderId);
+
+      const msg = await Message.create({ 
+        text, 
+        senderId, 
+        communityId, 
+        expiresAt, 
+        attachmentUrl, 
+        attachmentType,
+        senderDisplayName: senderUser ? senderUser.displayName : 'Unknown',
+        senderAvatarId: senderUser ? senderUser.avatarId : 'default',
+        senderStatus: senderUser ? senderUser.status : 'offline'
       });
+
+      const fullMsg = {
+        id: msg._id,
+        communityId: msg.communityId,
+        text: msg.text,
+        createdAt: msg.createdAt,
+        attachmentUrl: msg.attachmentUrl,
+        attachmentType: msg.attachmentType,
+        sender: {
+          id: msg.senderId,
+          displayName: msg.senderDisplayName,
+          avatarId: msg.senderAvatarId,
+          status: msg.senderStatus
+        }
+      };
 
       io.to(communityId).emit('receive_message', fullMsg);
     } catch (err) {
