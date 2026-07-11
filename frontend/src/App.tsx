@@ -2,10 +2,29 @@ import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import EmojiPicker from 'emoji-picker-react';
-import { KeyRound, User, ArrowRight, Sparkles, MessageCircle, Hash, Users, Settings, Search, Bell, Send, Paperclip, Smile, MoreVertical, ShieldAlert, FileText, Image as ImageIcon, Plus, Link, LogOut, PenTool, Menu } from 'lucide-react';
+import { KeyIcon as KeyRound, UserIcon as User, ArrowRightIcon as ArrowRight, SparklesIcon as Sparkles, ChatBubbleLeftIcon as MessageCircle, HashtagIcon as Hash, UsersIcon as Users, Cog6ToothIcon as Settings, MagnifyingGlassIcon as Search, BellIcon as Bell, PaperAirplaneIcon as Send, PaperClipIcon as Paperclip, FaceSmileIcon as Smile, EllipsisVerticalIcon as MoreVertical, ExclamationTriangleIcon as ShieldAlert, DocumentTextIcon as FileText, PhotoIcon as ImageIcon, PlusIcon as Plus, LinkIcon as Link, ArrowRightOnRectangleIcon as LogOut, PencilIcon as PenTool, Bars3Icon as Menu } from '@heroicons/react/24/outline';
+import { CodeBracketIcon, PaintBrushIcon, CubeTransparentIcon, CommandLineIcon, CpuChipIcon, BeakerIcon, WrenchScrewdriverIcon, SwatchIcon } from '@heroicons/react/24/solid';
 import Whiteboard from './components/Whiteboard';
 
 const socket = io('http://localhost:3005');
+
+const EngiNetLogo = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M22 8H12C9.79086 8 8 9.79086 8 12V20C8 22.2091 9.79086 24 12 24H22" stroke="url(#brandGrad)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M8 16H18" stroke="url(#brandGrad)" strokeWidth="4" strokeLinecap="round" />
+
+    <circle cx="24" cy="8" r="4" fill="#2DD4BF" />
+    <circle cx="21" cy="16" r="4" fill="#14B8A6" />
+    <circle cx="24" cy="24" r="4" fill="#0F766E" />
+
+    <defs>
+      <linearGradient id="brandGrad" x1="8" y1="8" x2="22" y2="24" gradientUnits="userSpaceOnUse">
+        <stop stopColor="#0D9488" />
+        <stop offset="1" stopColor="#2DD4BF" />
+      </linearGradient>
+    </defs>
+  </svg>
+);
 
 const AuthScreen = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -49,29 +68,52 @@ const AuthScreen = () => {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[var(--color-brand)] opacity-10 blur-3xl mix-blend-multiply pointer-events-none animate-pulse"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400 opacity-10 blur-3xl mix-blend-multiply pointer-events-none"></div>
 
+      {/* Floating Designer Stickers */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20 z-0">
+        <CodeBracketIcon className="absolute top-[15%] left-[8%] w-16 h-16 text-teal-600 rotate-12 animate-pulse" />
+        <PaintBrushIcon className="absolute top-[20%] right-[12%] w-20 h-20 text-pink-500 -rotate-12 animate-bounce" style={{ animationDuration: '3s' }} />
+        <CubeTransparentIcon className="absolute bottom-[25%] left-[10%] w-24 h-24 text-blue-500 rotate-45 opacity-60" />
+        <CommandLineIcon className="absolute bottom-[15%] right-[20%] w-16 h-16 text-purple-500 -rotate-6 animate-pulse" style={{ animationDuration: '4s' }} />
+        <CpuChipIcon className="absolute top-[45%] left-[2%] w-12 h-12 text-amber-500 rotate-90" />
+        <BeakerIcon className="absolute top-[10%] right-[30%] w-14 h-14 text-emerald-500 rotate-12 opacity-70" />
+        <WrenchScrewdriverIcon className="absolute bottom-[40%] right-[5%] w-20 h-20 text-indigo-500 -rotate-45" />
+        <SwatchIcon className="absolute top-[60%] left-[25%] w-16 h-16 text-rose-500 rotate-12 animate-bounce" style={{ animationDuration: '5s' }} />
+      </div>
+
       <div className="card w-full max-w-5xl flex overflow-hidden shadow-2xl z-10 min-h-[600px] border border-[var(--color-border)]/50 bg-white/80 backdrop-blur-xl">
         {/* Left Side: Branding / Marketing */}
         <div className="hidden lg:flex flex-col flex-1 bg-gradient-to-br from-[var(--color-brand)] to-teal-900 text-white p-12 justify-between relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
           <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-12">
-              <Sparkles className="w-8 h-8 text-white" />
-              <span className="text-2xl font-bold tracking-tight">EngiNet</span>
+            <div className="flex items-center gap-3 mb-12 select-none">
+              <div className="bg-white p-2.5 rounded-2xl shadow-xl shadow-black/10">
+                <EngiNetLogo className="w-8 h-8" />
+              </div>
+              <span className="text-4xl tracking-wide drop-shadow-sm" style={{ fontFamily: "'Righteous', system-ui, cursive" }}><span className="text-white">Engi</span><span className="text-teal-300">Net</span></span>
             </div>
-            <h1 className="text-5xl font-extrabold leading-tight mb-6">
-              Connect with<br />the builders.
+            <h1 className="text-[3.5rem] font-black tracking-tighter leading-[1.05] mb-8">
+              Connect with  <span className="graffiti-burn tracking-normal text-6xl">builders.</span>
             </h1>
             <p className="text-teal-100 text-lg max-w-md">
               A private, distraction-free space for engineers, designers, and product people to share ideas and ship faster.
             </p>
           </div>
-          <div className="relative z-10 flex items-center gap-4">
-            <div className="flex -space-x-4">
-              {[1, 2, 3, 4].map(i => (
-                <img key={i} src={`https://api.dicebear.com/7.x/notionists/svg?seed=${i}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt="avatar" className="w-12 h-12 rounded-full border-2 border-teal-900 bg-white" />
+          <div className="relative z-10 bg-white/10 backdrop-blur-md border border-white/20 p-6 rounded-2xl shadow-xl max-w-sm mt-8">
+            <div className="flex gap-1 text-yellow-400 mb-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <svg key={i} className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
               ))}
             </div>
-            <span className="text-sm font-medium text-teal-100">Join 10,000+ professionals</span>
+            <p className="text-sm text-white/95 font-medium leading-relaxed italic mb-5">
+              "EngiNet is where our team's best ideas are born. The real-time whiteboard combined with seamless chat saves us hours of messy meetings every single week."
+            </p>
+            <div className="flex items-center gap-3">
+              <img src="https://api.dicebear.com/7.x/notionists/svg?seed=sarah&backgroundColor=b6e3f4" className="w-10 h-10 rounded-full border-2 border-white/30 bg-white" alt="Sarah" />
+              <div>
+                <div className="text-sm font-bold text-white tracking-wide">Sarah Jenkins</div>
+                <div className="text-xs text-teal-100 font-medium">Lead Designer, TechCorp</div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -422,15 +464,15 @@ const Dashboard = () => {
 
       {/* 1. Icon Rail (Far Left) */}
       <div className={`w-[72px] bg-white border-r border-gray-200 flex-col items-center py-6 shadow-sm flex-shrink-0 ${showSidebar ? 'flex absolute md:relative z-50 h-full left-0' : 'hidden'}`}>
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-teal-400 to-teal-600 flex items-center justify-center mb-8 shadow-md shadow-teal-500/20 text-white cursor-pointer hover:scale-105 transition-transform">
-          <Sparkles className="w-6 h-6" />
+        <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center mb-8 shadow-md shadow-gray-200 border border-gray-100 cursor-pointer hover:scale-110 transition-transform group">
+          <EngiNetLogo className="w-8 h-8 group-hover:rotate-12 transition-transform duration-300" />
         </div>
 
         <div className="flex flex-col gap-6 flex-1 w-full items-center relative">
           <button onClick={() => setShowDirectChatsMenu(!showDirectChatsMenu)} className={`p-3 rounded-xl transition-colors relative group ${showDirectChatsMenu ? 'bg-teal-50 text-teal-600' : 'bg-gray-50 text-gray-400 hover:bg-teal-50 hover:text-teal-600'}`}>
             <MessageCircle className="w-6 h-6" />
           </button>
-          
+
           {showDirectChatsMenu && (
             <div className="absolute left-16 top-0 bg-white shadow-xl rounded-xl border border-gray-100 w-72 overflow-hidden z-50 animate-in slide-in-from-left-2 fade-in">
               <div className="p-4 border-b border-gray-50 flex items-center justify-between">
@@ -444,8 +486,8 @@ const Dashboard = () => {
                   directChats.map(dm => {
                     const partner = dm.senderId === user.id ? dm.receiver : dm.sender;
                     return (
-                      <div 
-                        key={dm.id} 
+                      <div
+                        key={dm.id}
                         onClick={() => { setActiveDm(dm); setActiveCommunity(null); setShowDirectChatsMenu(false); }}
                         className="p-3 border-b border-gray-50 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer"
                       >
@@ -463,7 +505,7 @@ const Dashboard = () => {
               </div>
             </div>
           )}
-          
+
           <button onClick={() => setShowCreateModal(true)} className="p-3 rounded-xl bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-teal-600 transition-colors group relative">
             <Plus className="w-6 h-6" />
             <div className="absolute left-14 bg-black text-white text-xs px-2 py-1 rounded hidden group-hover:block whitespace-nowrap z-50">Create Community</div>
@@ -507,8 +549,8 @@ const Dashboard = () => {
         <div className="p-6 pb-4">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold tracking-tight text-gray-800">Messages</h2>
-            <button className="p-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors">
-              <Sparkles className="w-5 h-5" />
+            <button className="p-2 rounded-full hover:bg-gray-200 text-gray-500 transition-colors" title="New Message">
+              <PenTool className="w-5 h-5" />
             </button>
           </div>
 
@@ -618,7 +660,7 @@ const Dashboard = () => {
         {/* Top Header */}
         <div className="h-[72px] bg-white border-b border-gray-100 flex items-center justify-between px-6 z-10 sticky top-0 flex-shrink-0">
           <div className="flex items-center gap-4">
-            <button 
+            <button
               onClick={() => setShowSidebar(!showSidebar)}
               className="p-2 -ml-2 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
             >
@@ -626,27 +668,27 @@ const Dashboard = () => {
             </button>
             <div>
               <h1 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              {activeCommunity ? activeCommunity.name : (activeDm ? (activeDm.sender?.id === user.id ? activeDm.receiver?.displayName : activeDm.sender?.displayName) : 'Select a chat')}
-            </h1>
-            <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
-              {activeCommunity && <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Members</span>}
-              {activeCommunity && <span className="w-1 h-1 rounded-full bg-gray-300"></span>}
-              <span className="text-teal-600 font-medium bg-teal-50 px-2 py-0.5 rounded-md flex items-center gap-1 text-xs">
-                <ShieldAlert className="w-3 h-3" /> Messages: {activeCommunity?.retentionMode === '24h' ? '24 hours' : '30 days'}
-              </span>
+                {activeCommunity ? activeCommunity.name : (activeDm ? (activeDm.sender?.id === user.id ? activeDm.receiver?.displayName : activeDm.sender?.displayName) : 'Select a chat')}
+              </h1>
+              <div className="flex items-center gap-3 text-sm text-gray-500 mt-0.5">
+                {activeCommunity && <span className="flex items-center gap-1.5"><Users className="w-3.5 h-3.5" /> Members</span>}
+                {activeCommunity && <span className="w-1 h-1 rounded-full bg-gray-300"></span>}
+                <span className="text-teal-600 font-medium bg-teal-50 px-2 py-0.5 rounded-md flex items-center gap-1 text-xs">
+                  <ShieldAlert className="w-3 h-3" /> Messages: {activeCommunity?.retentionMode === '24h' ? '24 hours' : '30 days'}
+                </span>
+              </div>
             </div>
-          </div>
           </div>
           <div className="flex gap-2">
             {activeCommunity?.name === 'System Design' && (
-              <button 
+              <button
                 onClick={() => {
                   const newState = !showWhiteboard;
                   setShowWhiteboard(newState);
                   if (newState) {
                     socket.emit('whiteboard_toggle', { roomId: activeCommunity.id, isOpen: newState });
                   }
-                }} 
+                }}
                 className={`p-2 rounded-xl transition-colors ${showWhiteboard ? 'text-indigo-600 bg-indigo-50' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
                 title="Toggle Whiteboard"
               >
@@ -660,23 +702,23 @@ const Dashboard = () => {
               {showMenu && (
                 <div className="absolute right-0 top-12 w-48 bg-white border border-gray-100 shadow-xl rounded-xl overflow-hidden z-50">
                   <div className="py-1">
-                    <button 
+                    <button
                       onClick={() => {
                         navigator.clipboard.writeText(window.location.href);
                         alert('Community Link Copied!');
                         setShowMenu(false);
-                      }} 
+                      }}
                       className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors font-medium flex items-center gap-2"
                     >
                       <Link className="w-4 h-4 text-gray-400" />
                       Share Link
                     </button>
-                    <button 
+                    <button
                       onClick={() => {
                         alert('You left the community.');
                         setShowMenu(false);
                         setActiveCommunity(null);
-                      }} 
+                      }}
                       className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors font-medium flex items-center gap-2"
                     >
                       <LogOut className="w-4 h-4 text-red-400" />
@@ -690,141 +732,141 @@ const Dashboard = () => {
         </div>
 
         <div className="flex-1 flex overflow-hidden">
-          <div 
-            className="flex flex-col min-w-[300px] flex-shrink-0" 
+          <div
+            className="flex flex-col min-w-[300px] flex-shrink-0"
             style={{ width: showWhiteboard ? `${chatWidth}%` : '100%', flex: showWhiteboard ? 'none' : '1 1 0%' }}
           >
             {/* Message Thread */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#fcfcfd]">
-          {messages.map((msg, i) => {
-            const senderId = msg.senderId || msg.sender?.id;
-            const isMine = senderId === user.id;
-            const msgDate = new Date(msg.createdAt);
-            const prevMsgDate = i > 0 ? new Date(messages[i - 1].createdAt) : null;
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#fcfcfd]">
+              {messages.map((msg, i) => {
+                const senderId = msg.senderId || msg.sender?.id;
+                const isMine = senderId === user.id;
+                const msgDate = new Date(msg.createdAt);
+                const prevMsgDate = i > 0 ? new Date(messages[i - 1].createdAt) : null;
 
-            let showDateSeparator = false;
-            let dateString = '';
+                let showDateSeparator = false;
+                let dateString = '';
 
-            if (!prevMsgDate || msgDate.toDateString() !== prevMsgDate.toDateString()) {
-              showDateSeparator = true;
-              const today = new Date();
-              const yesterday = new Date(today);
-              yesterday.setDate(yesterday.getDate() - 1);
+                if (!prevMsgDate || msgDate.toDateString() !== prevMsgDate.toDateString()) {
+                  showDateSeparator = true;
+                  const today = new Date();
+                  const yesterday = new Date(today);
+                  yesterday.setDate(yesterday.getDate() - 1);
 
-              if (msgDate.toDateString() === today.toDateString()) {
-                dateString = 'Today';
-              } else if (msgDate.toDateString() === yesterday.toDateString()) {
-                dateString = 'Yesterday';
-              } else {
-                dateString = msgDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
-              }
-            }
+                  if (msgDate.toDateString() === today.toDateString()) {
+                    dateString = 'Today';
+                  } else if (msgDate.toDateString() === yesterday.toDateString()) {
+                    dateString = 'Yesterday';
+                  } else {
+                    dateString = msgDate.toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' });
+                  }
+                }
 
-            return (
-              <React.Fragment key={msg.id}>
-                {showDateSeparator && (
-                  <div className="flex justify-center my-4">
-                    <span className="bg-gray-200/70 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                      {dateString}
-                    </span>
-                  </div>
-                )}
-                <div className={`flex gap-4 max-w-[80%] ${isMine ? 'flex-row-reverse self-end ml-auto' : ''}`}>
-                  <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${senderId}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt={senderId} className={`w-10 h-10 rounded-full border mt-1 ${isMine ? 'border-teal-100' : 'border-gray-200'}`} />
-                  <div className={`flex flex-col ${isMine ? 'items-end' : ''}`}>
-                    <div className={`flex items-baseline gap-2 mb-1.5 ${isMine ? 'mr-1' : 'ml-1'}`}>
-                      {isMine && <span className="text-xs text-gray-400 font-medium">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
-                      <span className="font-semibold text-sm text-gray-800">{isMine ? 'You' : msg.sender?.displayName || senderId}</span>
-                      {!isMine && <span className="text-xs text-gray-400 font-medium">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                return (
+                  <React.Fragment key={msg.id}>
+                    {showDateSeparator && (
+                      <div className="flex justify-center my-4">
+                        <span className="bg-gray-200/70 text-gray-600 text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                          {dateString}
+                        </span>
+                      </div>
+                    )}
+                    <div className={`flex gap-4 max-w-[80%] ${isMine ? 'flex-row-reverse self-end ml-auto' : ''}`}>
+                      <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${senderId}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt={senderId} className={`w-10 h-10 rounded-full border mt-1 ${isMine ? 'border-teal-100' : 'border-gray-200'}`} />
+                      <div className={`flex flex-col ${isMine ? 'items-end' : ''}`}>
+                        <div className={`flex items-baseline gap-2 mb-1.5 ${isMine ? 'mr-1' : 'ml-1'}`}>
+                          {isMine && <span className="text-xs text-gray-400 font-medium">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                          <span className="font-semibold text-sm text-gray-800">{isMine ? 'You' : msg.sender?.displayName || senderId}</span>
+                          {!isMine && <span className="text-xs text-gray-400 font-medium">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
+                        </div>
+                        <div className={`p-4 rounded-2xl shadow-sm text-[15px] leading-relaxed inline-block ${isMine ? 'bg-gradient-to-br from-teal-500 to-teal-600 rounded-tr-none text-white shadow-teal-500/20' : 'bg-white border border-gray-100 rounded-tl-none text-gray-700'}`}>
+                          {msg.attachmentUrl && msg.attachmentType === 'image' && (
+                            <img src={msg.attachmentUrl} alt="attachment" className="max-w-xs rounded-lg mb-2 border border-black/10" />
+                          )}
+                          {msg.attachmentUrl && msg.attachmentType === 'file' && (
+                            <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black/10 p-2 rounded-lg mb-2 text-sm font-medium hover:bg-black/20 transition-colors">
+                              <FileText className="w-4 h-4" /> Download Attachment
+                            </a>
+                          )}
+                          {msg.text}
+                        </div>
+                      </div>
                     </div>
-                    <div className={`p-4 rounded-2xl shadow-sm text-[15px] leading-relaxed inline-block ${isMine ? 'bg-gradient-to-br from-teal-500 to-teal-600 rounded-tr-none text-white shadow-teal-500/20' : 'bg-white border border-gray-100 rounded-tl-none text-gray-700'}`}>
-                      {msg.attachmentUrl && msg.attachmentType === 'image' && (
-                        <img src={msg.attachmentUrl} alt="attachment" className="max-w-xs rounded-lg mb-2 border border-black/10" />
-                      )}
-                      {msg.attachmentUrl && msg.attachmentType === 'file' && (
-                        <a href={msg.attachmentUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 bg-black/10 p-2 rounded-lg mb-2 text-sm font-medium hover:bg-black/20 transition-colors">
-                          <FileText className="w-4 h-4" /> Download Attachment
-                        </a>
-                      )}
-                      {msg.text}
-                    </div>
-                  </div>
+                  </React.Fragment>
+                );
+              })}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* Composer */}
+            <div className="p-4 bg-white border-t border-gray-100 z-10 relative">
+
+              {showEmoji && (
+                <div className="absolute bottom-20 right-16 shadow-2xl rounded-2xl overflow-hidden border border-gray-100 animate-in slide-in-from-bottom-4">
+                  <EmojiPicker
+                    onEmojiClick={(e) => setInputMessage(prev => prev + e.emoji)}
+                    lazyLoadEmojis={true}
+                  />
                 </div>
-              </React.Fragment>
-            );
-          })}
-          <div ref={messagesEndRef} />
-        </div>
+              )}
 
-        {/* Composer */}
-        <div className="p-4 bg-white border-t border-gray-100 z-10 relative">
+              {attachment && (
+                <div className="mb-2 p-2 bg-teal-50 text-teal-700 text-sm font-medium rounded-lg flex items-center justify-between border border-teal-100">
+                  <span className="flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attached: {attachment.name}</span>
+                  <button onClick={() => setAttachment(null)} className="text-teal-600 hover:text-red-500 font-bold px-2">&times;</button>
+                </div>
+              )}
 
-          {showEmoji && (
-            <div className="absolute bottom-20 right-16 shadow-2xl rounded-2xl overflow-hidden border border-gray-100 animate-in slide-in-from-bottom-4">
-              <EmojiPicker
-                onEmojiClick={(e) => setInputMessage(prev => prev + e.emoji)}
-                lazyLoadEmojis={true}
-              />
-            </div>
-          )}
+              <div className="bg-[#f8fafc] border border-gray-200 rounded-2xl flex items-end p-1 shadow-sm focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-400 transition-all">
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={(e) => e.target.files && setAttachment(e.target.files[0])}
+                  className="hidden"
+                />
+                <div className="flex gap-1 pb-1 pl-1">
+                  <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-colors">
+                    <Paperclip className="w-5 h-5" />
+                  </button>
+                </div>
 
-          {attachment && (
-            <div className="mb-2 p-2 bg-teal-50 text-teal-700 text-sm font-medium rounded-lg flex items-center justify-between border border-teal-100">
-              <span className="flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attached: {attachment.name}</span>
-              <button onClick={() => setAttachment(null)} className="text-teal-600 hover:text-red-500 font-bold px-2">&times;</button>
-            </div>
-          )}
+                <textarea
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                  placeholder={`Message ${activeCommunity?.name || 'Community'}...`}
+                  className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-2 max-h-32 text-[15px] placeholder-gray-400 outline-none"
+                  rows={1}
+                />
 
-          <div className="bg-[#f8fafc] border border-gray-200 rounded-2xl flex items-end p-1 shadow-sm focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-400 transition-all">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={(e) => e.target.files && setAttachment(e.target.files[0])}
-              className="hidden"
-            />
-            <div className="flex gap-1 pb-1 pl-1">
-              <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-colors">
-                <Paperclip className="w-5 h-5" />
-              </button>
-            </div>
-
-            <textarea
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
-              placeholder={`Message ${activeCommunity?.name || 'Community'}...`}
-              className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-2 max-h-32 text-[15px] placeholder-gray-400 outline-none"
-              rows={1}
-            />
-
-            <div className="flex gap-2 pb-1 pr-1">
-              <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 rounded-xl transition-colors ${showEmoji ? 'text-amber-500 bg-amber-50' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}>
-                <Smile className="w-5 h-5" />
-              </button>
-              <button onClick={handleSendMessage} className="p-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl shadow-md shadow-teal-500/30 transition-all active:scale-95 disabled:opacity-50" disabled={!inputMessage.trim() && !attachment}>
-                <Send className="w-5 h-5" />
-              </button>
+                <div className="flex gap-2 pb-1 pr-1">
+                  <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 rounded-xl transition-colors ${showEmoji ? 'text-amber-500 bg-amber-50' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}>
+                    <Smile className="w-5 h-5" />
+                  </button>
+                  <button onClick={handleSendMessage} className="p-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl shadow-md shadow-teal-500/30 transition-all active:scale-95 disabled:opacity-50" disabled={!inputMessage.trim() && !attachment}>
+                    <Send className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+              <div className="text-center mt-2">
+                <span className="text-[10px] text-gray-400 font-medium">Messages in this chat disappear after 30 days</span>
+              </div>
             </div>
           </div>
-          <div className="text-center mt-2">
-            <span className="text-[10px] text-gray-400 font-medium">Messages in this chat disappear after 30 days</span>
-          </div>
-        </div>
-        </div>
-        {showWhiteboard && (
-          <>
-            <div 
-              className="w-1 cursor-col-resize bg-gray-200 hover:bg-teal-400 active:bg-teal-500 transition-colors z-50 flex-shrink-0"
-              onMouseDown={() => setIsDragging(true)}
-            />
-            <div className="flex-1 border-l border-gray-200 min-w-0">
-              <Whiteboard 
-                roomId={activeCommunity ? activeCommunity.id : [user.id, activeDm.sender?.id === user.id ? activeDm.receiver?.id : activeDm.sender?.id].sort().join('_')} 
-                socket={socket} 
+          {showWhiteboard && (
+            <>
+              <div
+                className="w-1 cursor-col-resize bg-gray-200 hover:bg-teal-400 active:bg-teal-500 transition-colors z-50 flex-shrink-0"
+                onMouseDown={() => setIsDragging(true)}
               />
-            </div>
-          </>
-        )}
+              <div className="flex-1 border-l border-gray-200 min-w-0">
+                <Whiteboard
+                  roomId={activeCommunity ? activeCommunity.id : [user.id, activeDm.sender?.id === user.id ? activeDm.receiver?.id : activeDm.sender?.id].sort().join('_')}
+                  socket={socket}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -880,8 +922,8 @@ const Dashboard = () => {
       {showProfileModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
           <div className="bg-white rounded-2xl w-full max-w-2xl p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2"><User className="w-5 h-5 text-teal-500"/> Edit Profile</h2>
-            
+            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2"><User className="w-5 h-5 text-teal-500" /> Edit Profile</h2>
+
             <div className="space-y-5">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Display Name</label>
@@ -892,8 +934,8 @@ const Dashboard = () => {
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Avatar</label>
                 <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3 max-h-64 overflow-y-auto p-4 border border-gray-200 rounded-xl bg-gray-50">
                   {Array.from({ length: 60 }, (_, i) => `avatar-${i + 1}`).map(seed => (
-                    <div 
-                      key={seed} 
+                    <div
+                      key={seed}
                       onClick={() => setProfileAvatar(seed)}
                       className={`cursor-pointer rounded-full p-1 border-2 transition-all ${profileAvatar === seed ? 'border-teal-500 scale-110 shadow-md bg-white' : 'border-transparent hover:border-teal-300 hover:bg-white'}`}
                     >
