@@ -5,6 +5,7 @@ import EmojiPicker from 'emoji-picker-react';
 import { KeyIcon as KeyRound, UserIcon as User, ArrowRightIcon as ArrowRight, SparklesIcon as Sparkles, ChatBubbleLeftIcon as MessageCircle, HashtagIcon as Hash, UsersIcon as Users, Cog6ToothIcon as Settings, MagnifyingGlassIcon as Search, BellIcon as Bell, PaperAirplaneIcon as Send, PaperClipIcon as Paperclip, FaceSmileIcon as Smile, EllipsisVerticalIcon as MoreVertical, ExclamationTriangleIcon as ShieldAlert, DocumentTextIcon as FileText, PhotoIcon as ImageIcon, PlusIcon as Plus, LinkIcon as Link, ArrowRightOnRectangleIcon as LogOut, PencilIcon as PenTool, Bars3Icon as Menu } from '@heroicons/react/24/outline';
 import { CodeBracketIcon, PaintBrushIcon, CubeTransparentIcon, CommandLineIcon, CpuChipIcon, BeakerIcon, WrenchScrewdriverIcon, SwatchIcon } from '@heroicons/react/24/solid';
 import Whiteboard from './components/Whiteboard';
+import Landing from './components/Landing';
 
 const socket = io('http://localhost:3005');
 
@@ -221,7 +222,44 @@ const Dashboard = () => {
   const [directChats, setDirectChats] = useState<any[]>([]);
   const [activeDm, setActiveDm] = useState<any>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [chatWallpaper, setChatWallpaper] = useState(localStorage.getItem('chatWallpaper') || 'none');
+  const [profileModalTab, setProfileModalTab] = useState<'profile' | 'appearance'>('profile');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const WALLPAPERS = [
+    { id: 'none', name: 'Minimal', className: 'bg-[#fcfcfd]' },
+    { id: 'grid', name: 'Hacker Grid', className: 'bg-[#f8fafc] bg-[url("https://www.transparenttextures.com/patterns/grid-me.png")]' },
+    { id: 'blueprint', name: 'Blueprint', className: 'bg-indigo-50/50 bg-[url("https://www.transparenttextures.com/patterns/blueprint.png")]' },
+    { id: 'paper-boats', name: 'Paper Boats', className: 'bg-blue-50/60 bg-[url("https://www.transparenttextures.com/patterns/paper-boats.png")]' },
+    { id: 'food', name: 'Snack Time', className: 'bg-orange-50/50 bg-[url("https://www.transparenttextures.com/patterns/food.png")]' },
+    { id: 'tic-tac-toe', name: 'Tic Tac Toe', className: 'bg-rose-50/50 bg-[url("https://www.transparenttextures.com/patterns/tic-tac-toe.png")]' },
+    { id: 'robots', name: 'Robo Friends', className: 'bg-emerald-50/50 bg-[url("https://www.transparenttextures.com/patterns/robots.png")]' },
+    { id: 'clouds', name: 'Happy Clouds', className: 'bg-sky-50/60 bg-[url("https://www.transparenttextures.com/patterns/clouds.png")]' },
+    { id: 'anime-lofi', name: 'Lofi Girl', className: 'bg-black bg-[url("/wallpapers/anime_lofi_girl_1783749080788.png")] bg-cover bg-center' },
+    { id: 'anime-cyber', name: 'Cyber Boy', className: 'bg-black bg-[url("/wallpapers/anime_cyber_boy_1783749098026.png")] bg-cover bg-center' },
+    { id: 'anime-fantasy', name: 'Fantasy Scenery', className: 'bg-black bg-[url("/wallpapers/anime_fantasy_1783749114012.png")] bg-cover bg-center' },
+    { id: 'anime-mecha', name: 'Mecha Robot', className: 'bg-black bg-[url("/wallpapers/anime_mecha_1783749129533.png")] bg-cover bg-center' },
+    { id: 'anime-samurai', name: 'Samurai Sunset', className: 'bg-black bg-[url("/wallpapers/anime_samurai_1783749144485.png")] bg-cover bg-center' },
+    { id: '3d-scifi', name: 'Sci-Fi City', className: 'bg-black bg-[url("/wallpapers/cinematic_scifi_city_1783749487100.png")] bg-cover bg-center' },
+    { id: '3d-forest', name: 'Magic Forest', className: 'bg-black bg-[url("/wallpapers/cinematic_magic_forest_1783749536214.png")] bg-cover bg-center' },
+    { id: '3d-car', name: 'Neon Bridge', className: 'bg-black bg-[url("/wallpapers/cinematic_neon_car_1783749596335.png")] bg-cover bg-center' },
+    { id: '3d-space', name: 'Space Station', className: 'bg-black bg-[url("/wallpapers/cinematic_space_station_1783749625814.png")] bg-cover bg-center' },
+    { id: '3d-room', name: 'Cozy Room', className: 'bg-black bg-[url("/wallpapers/cinematic_cozy_room_1783749666890.png")] bg-cover bg-center' },
+    { id: 'ill-coffee', name: 'Coffee Shop', className: 'bg-black bg-[url("/wallpapers/illustration_coffee_shop_1783749815129.png")] bg-cover bg-center' },
+    { id: 'ill-mountain', name: 'Mountain Sunrise', className: 'bg-black bg-[url("/wallpapers/illustration_mountain_sunrise_1783749826521.png")] bg-cover bg-center' },
+    { id: 'ill-synthwave', name: 'Synthwave', className: 'bg-black bg-[url("/wallpapers/illustration_synthwave_1783749840792.png")] bg-cover bg-center' },
+    { id: 'ill-magic', name: 'Magic Library', className: 'bg-black bg-[url("/wallpapers/illustration_magic_library_1783749857292.png")] bg-cover bg-center' },
+    { id: 'ill-cyber', name: 'Cyber Market', className: 'bg-black bg-[url("/wallpapers/illustration_cyber_market_1783749875141.png")] bg-cover bg-center' },
+    { id: 'des-dark', name: 'Dark Abstract', className: 'bg-black bg-[url("/wallpapers/designer_abstract_dark_1783750027689.png")] bg-cover bg-center' },
+    { id: 'des-mesh', name: 'Gradient Mesh', className: 'bg-black bg-[url("/wallpapers/designer_gradient_mesh_1783750040959.png")] bg-cover bg-center' },
+    { id: 'des-grid', name: 'Tech Grid', className: 'bg-slate-900 bg-[url("https://www.transparenttextures.com/patterns/cubes.png")]' },
+    { id: 'des-focus', name: 'Student Focus', className: 'bg-gradient-to-br from-indigo-50 to-white bg-[url("https://www.transparenttextures.com/patterns/diagonal-noise.png")]' },
+    { id: 'des-cyber', name: 'Cyber Minimal', className: 'bg-teal-900 bg-[url("https://www.transparenttextures.com/patterns/carbon-fibre.png")]' },
+    { id: 'nat-misty', name: 'Misty Mountains', className: 'bg-black bg-[url("https://images.unsplash.com/photo-1472214103451-9374bd1c798e?auto=format&fit=crop&w=1920&q=80")] bg-cover bg-center' },
+    { id: 'nat-forest', name: 'Deep Forest', className: 'bg-black bg-[url("https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1920&q=80")] bg-cover bg-center' },
+    { id: 'nat-peaks', name: 'Foggy Peaks', className: 'bg-black bg-[url("https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1920&q=80")] bg-cover bg-center' },
+    { id: 'nat-ocean', name: 'Calm Ocean', className: 'bg-black bg-[url("https://images.unsplash.com/photo-1501854140801-50d01698950b?auto=format&fit=crop&w=1920&q=80")] bg-cover bg-center' }
+  ];
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -534,10 +572,10 @@ const Dashboard = () => {
               </button>
             </div>
           )}
-          <button onClick={() => { setShowSettings(!showSettings); setIsEditingProfile(false); }} className={`p-3 rounded-xl transition-colors ${showSettings ? 'bg-gray-100 text-gray-800' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
+          <button onClick={() => setShowSettings(!showSettings)} className={`p-3 rounded-xl transition-colors ${showSettings ? 'bg-gray-100 text-gray-800' : 'text-gray-400 hover:bg-gray-100 hover:text-gray-600'}`}>
             <Settings className="w-6 h-6" />
           </button>
-          <div onClick={() => { setShowSettings(!showSettings); setIsEditingProfile(false); }} className="relative mt-2 cursor-pointer hover:scale-105 transition-transform">
+          <div onClick={() => setShowSettings(!showSettings)} className="relative mt-2 cursor-pointer hover:scale-105 transition-transform">
             <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${user.avatarId || user.id}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt="profile" className="w-10 h-10 rounded-full border border-gray-200" />
             <span className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${user.status === 'online' || !user.status ? 'bg-green-500' : user.status === 'away' ? 'bg-yellow-500' : user.status === 'dnd' ? 'bg-red-500' : 'bg-gray-400'}`}></span>
           </div>
@@ -737,7 +775,10 @@ const Dashboard = () => {
             style={{ width: showWhiteboard ? `${chatWidth}%` : '100%', flex: showWhiteboard ? 'none' : '1 1 0%' }}
           >
             {/* Message Thread */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#fcfcfd]">
+            <div className={`flex-1 overflow-y-auto p-6 space-y-6 relative ${WALLPAPERS.find(w => w.id === chatWallpaper)?.className || 'bg-[#fcfcfd]'}`}>
+              {/* Decorative Glow */}
+              <div className="absolute top-[20%] left-[10%] w-96 h-96 bg-teal-400/5 rounded-full blur-3xl pointer-events-none"></div>
+              <div className="absolute bottom-[20%] right-[10%] w-96 h-96 bg-indigo-400/5 rounded-full blur-3xl pointer-events-none"></div>
               {messages.map((msg, i) => {
                 const senderId = msg.senderId || msg.sender?.id;
                 const isMine = senderId === user.id;
@@ -779,7 +820,7 @@ const Dashboard = () => {
                           <span className="font-semibold text-sm text-gray-800">{isMine ? 'You' : msg.sender?.displayName || senderId}</span>
                           {!isMine && <span className="text-xs text-gray-400 font-medium">{new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>}
                         </div>
-                        <div className={`p-4 rounded-2xl shadow-sm text-[15px] leading-relaxed inline-block ${isMine ? 'bg-gradient-to-br from-teal-500 to-teal-600 rounded-tr-none text-white shadow-teal-500/20' : 'bg-white border border-gray-100 rounded-tl-none text-gray-700'}`}>
+                        <div className={`p-4 rounded-2xl shadow-sm text-[15px] leading-relaxed inline-block backdrop-blur-md ${isMine ? 'bg-gradient-to-br from-teal-500/90 to-teal-600/90 rounded-tr-none text-white shadow-teal-500/20 border border-teal-400/30' : 'bg-white/80 border border-white/50 shadow-xl shadow-black/5 rounded-tl-none text-gray-800'}`}>
                           {msg.attachmentUrl && msg.attachmentType === 'image' && (
                             <img src={msg.attachmentUrl} alt="attachment" className="max-w-xs rounded-lg mb-2 border border-black/10" />
                           )}
@@ -799,10 +840,10 @@ const Dashboard = () => {
             </div>
 
             {/* Composer */}
-            <div className="p-4 bg-white border-t border-gray-100 z-10 relative">
+            <div className="p-4 bg-transparent border-t border-gray-100/50 z-10 relative mt-auto backdrop-blur-sm">
 
               {showEmoji && (
-                <div className="absolute bottom-20 right-16 shadow-2xl rounded-2xl overflow-hidden border border-gray-100 animate-in slide-in-from-bottom-4">
+                <div className="absolute bottom-24 right-16 shadow-2xl rounded-2xl overflow-hidden border border-white/50 bg-white/90 backdrop-blur-xl animate-in slide-in-from-bottom-4 z-50">
                   <EmojiPicker
                     onEmojiClick={(e) => setInputMessage(prev => prev + e.emoji)}
                     lazyLoadEmojis={true}
@@ -811,13 +852,13 @@ const Dashboard = () => {
               )}
 
               {attachment && (
-                <div className="mb-2 p-2 bg-teal-50 text-teal-700 text-sm font-medium rounded-lg flex items-center justify-between border border-teal-100">
-                  <span className="flex items-center gap-2"><Paperclip className="w-4 h-4" /> Attached: {attachment.name}</span>
-                  <button onClick={() => setAttachment(null)} className="text-teal-600 hover:text-red-500 font-bold px-2">&times;</button>
+                <div className="mb-2 p-2 bg-white/80 backdrop-blur-md text-teal-700 text-sm font-medium rounded-xl flex items-center justify-between border border-teal-100 shadow-sm max-w-sm">
+                  <span className="flex items-center gap-2 truncate"><Paperclip className="w-4 h-4 flex-shrink-0" /> <span className="truncate">{attachment.name}</span></span>
+                  <button onClick={() => setAttachment(null)} className="text-teal-600 hover:text-red-500 font-bold px-2 flex-shrink-0">&times;</button>
                 </div>
               )}
 
-              <div className="bg-[#f8fafc] border border-gray-200 rounded-2xl flex items-end p-1 shadow-sm focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-400 transition-all">
+              <div className="bg-white/70 backdrop-blur-xl border border-white/60 shadow-lg shadow-black/5 rounded-3xl flex items-end p-1.5 focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:bg-white/90 transition-all">
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -825,7 +866,7 @@ const Dashboard = () => {
                   className="hidden"
                 />
                 <div className="flex gap-1 pb-1 pl-1">
-                  <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50 rounded-xl transition-colors">
+                  <button onClick={() => fileInputRef.current?.click()} className="p-2 text-gray-400 hover:text-teal-600 hover:bg-teal-50/80 rounded-xl transition-colors">
                     <Paperclip className="w-5 h-5" />
                   </button>
                 </div>
@@ -835,21 +876,21 @@ const Dashboard = () => {
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                   placeholder={`Message ${activeCommunity?.name || 'Community'}...`}
-                  className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-2 max-h-32 text-[15px] placeholder-gray-400 outline-none"
+                  className="flex-1 bg-transparent border-none focus:ring-0 resize-none py-3 px-3 max-h-32 text-[15px] placeholder-gray-400 outline-none text-gray-800"
                   rows={1}
                 />
 
                 <div className="flex gap-2 pb-1 pr-1">
-                  <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 rounded-xl transition-colors ${showEmoji ? 'text-amber-500 bg-amber-50' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}>
+                  <button onClick={() => setShowEmoji(!showEmoji)} className={`p-2 rounded-xl transition-colors ${showEmoji ? 'text-amber-500 bg-amber-50/80' : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50/80'}`}>
                     <Smile className="w-5 h-5" />
                   </button>
-                  <button onClick={handleSendMessage} className="p-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl shadow-md shadow-teal-500/30 transition-all active:scale-95 disabled:opacity-50" disabled={!inputMessage.trim() && !attachment}>
+                  <button onClick={handleSendMessage} className="p-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white rounded-xl shadow-md shadow-teal-500/30 transition-all active:scale-95 disabled:opacity-50" disabled={!inputMessage.trim() && !attachment}>
                     <Send className="w-5 h-5" />
                   </button>
                 </div>
               </div>
-              <div className="text-center mt-2">
-                <span className="text-[10px] text-gray-400 font-medium">Messages in this chat disappear after 30 days</span>
+              <div className="text-center mt-2 opacity-70">
+                <span className="text-[10px] text-gray-400 font-medium tracking-wide">Messages disappear after {activeCommunity?.retentionMode === '24h' ? '24 hours' : '30 days'}</span>
               </div>
             </div>
           </div>
@@ -918,48 +959,101 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Edit Profile Modal */}
+      {/* Edit Profile & Appearance Modal */}
       {showProfileModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 animate-in fade-in">
-          <div className="bg-white rounded-2xl w-full max-w-2xl p-6 md:p-8 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2"><User className="w-5 h-5 text-teal-500" /> Edit Profile</h2>
-
-            <div className="space-y-5">
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Display Name</label>
-                <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Avatar</label>
-                <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3 max-h-64 overflow-y-auto p-4 border border-gray-200 rounded-xl bg-gray-50">
-                  {Array.from({ length: 60 }, (_, i) => `avatar-${i + 1}`).map(seed => (
-                    <div
-                      key={seed}
-                      onClick={() => setProfileAvatar(seed)}
-                      className={`cursor-pointer rounded-full p-1 border-2 transition-all ${profileAvatar === seed ? 'border-teal-500 scale-110 shadow-md bg-white' : 'border-transparent hover:border-teal-300 hover:bg-white'}`}
-                    >
-                      <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${seed}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt={seed} className="w-full aspect-square rounded-full bg-white" />
-                    </div>
-                  ))}
-                </div>
-                <p className="text-[10px] text-gray-400 mt-2">60 unique colored avatars available.</p>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Status</label>
-                <select value={profileStatus} onChange={e => setProfileStatus(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none">
-                  <option value="online">Online</option>
-                  <option value="away">Away</option>
-                  <option value="dnd">Do Not Disturb</option>
-                  <option value="offline">Offline</option>
-                </select>
-              </div>
+          <div className="bg-white/95 backdrop-blur-xl border border-white/50 rounded-3xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div className="p-6 md:p-8 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2"><Settings className="w-6 h-6 text-teal-500" /> Settings</h2>
+              <button onClick={() => setShowProfileModal(false)} className="text-gray-400 hover:bg-gray-100 p-2 rounded-full transition-colors">&times;</button>
             </div>
 
-            <div className="flex gap-3 justify-end mt-8">
-              <button onClick={() => setShowProfileModal(false)} className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50 rounded-xl transition-colors">Cancel</button>
-              <button onClick={handleSaveProfile} className="px-5 py-2.5 bg-teal-500 hover:bg-teal-600 text-white text-sm font-semibold rounded-xl shadow-md shadow-teal-500/20 transition-all active:scale-95">Save Changes</button>
+            <div className="flex border-b border-gray-100 px-6 md:px-8">
+              <button
+                onClick={() => setProfileModalTab('profile')}
+                className={`py-4 px-4 text-sm font-semibold border-b-2 transition-colors ${profileModalTab === 'profile' ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={() => setProfileModalTab('appearance')}
+                className={`py-4 px-4 text-sm font-semibold border-b-2 transition-colors ${profileModalTab === 'appearance' ? 'border-teal-500 text-teal-600' : 'border-transparent text-gray-500 hover:text-gray-700'}`}
+              >
+                Appearance
+              </button>
+            </div>
+
+            <div className="p-6 md:p-8 overflow-y-auto flex-1">
+              {profileModalTab === 'profile' ? (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Display Name</label>
+                    <input type="text" value={profileName} onChange={e => setProfileName(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none" />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Avatar</label>
+                    <div className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-3 max-h-64 overflow-y-auto p-4 border border-gray-200 rounded-xl bg-gray-50">
+                      {Array.from({ length: 60 }, (_, i) => `avatar-${i + 1}`).map(seed => (
+                        <div
+                          key={seed}
+                          onClick={() => setProfileAvatar(seed)}
+                          className={`cursor-pointer rounded-full p-1 border-2 transition-all ${profileAvatar === seed ? 'border-teal-500 scale-110 shadow-md bg-white' : 'border-transparent hover:border-teal-300 hover:bg-white'}`}
+                        >
+                          <img src={`https://api.dicebear.com/7.x/notionists/svg?seed=${seed}&backgroundColor=ffd5dc,d1d4f9,c0aede,b6e3f4,ffdfbf`} alt={seed} className="w-full aspect-square rounded-full bg-white" />
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-2">60 unique colored avatars available.</p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Status</label>
+                    <select value={profileStatus} onChange={e => setProfileStatus(e.target.value)} className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500 transition-all outline-none">
+                      <option value="online">Online</option>
+                      <option value="away">Away</option>
+                      <option value="dnd">Do Not Disturb</option>
+                      <option value="offline">Offline</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">Chat Wallpaper</label>
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {WALLPAPERS.map(wall => (
+                        <div
+                          key={wall.id}
+                          onClick={() => {
+                            setChatWallpaper(wall.id);
+                            localStorage.setItem('chatWallpaper', wall.id);
+                          }}
+                          className={`cursor-pointer rounded-2xl border-2 overflow-hidden transition-all group ${chatWallpaper === wall.id ? 'border-teal-500 ring-4 ring-teal-500/20 scale-105 shadow-xl' : 'border-gray-200 hover:border-teal-300 shadow-sm hover:shadow-md'}`}
+                        >
+                          <div className={`h-24 w-full ${wall.className} flex items-center justify-center`}>
+                            {/* Dummy message bubbles for preview */}
+                            <div className="w-3/4 flex flex-col gap-2 p-2 pointer-events-none opacity-80">
+                              <div className="h-4 w-1/2 bg-white/80 rounded-lg rounded-tl-none self-start backdrop-blur-sm border border-white/50 shadow-sm"></div>
+                              <div className="h-4 w-2/3 bg-teal-500/90 rounded-lg rounded-tr-none self-end backdrop-blur-sm shadow-sm text-white border border-teal-400/30"></div>
+                            </div>
+                          </div>
+                          <div className={`p-3 text-sm font-semibold text-center border-t border-gray-100 ${chatWallpaper === wall.id ? 'bg-teal-50 text-teal-700' : 'bg-white text-gray-600'}`}>
+                            {wall.name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="p-6 md:p-8 border-t border-gray-100 bg-gray-50/50 flex justify-end gap-3 rounded-b-3xl">
+              <button onClick={() => setShowProfileModal(false)} className="px-5 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">Close</button>
+              {profileModalTab === 'profile' && (
+                <button onClick={handleSaveProfile} className="px-6 py-2.5 bg-gradient-to-r from-teal-500 to-teal-600 hover:from-teal-600 hover:to-teal-700 text-white text-sm font-semibold rounded-xl shadow-lg shadow-teal-500/30 transition-all active:scale-95">Save Profile</button>
+              )}
             </div>
           </div>
         </div>
@@ -1035,9 +1129,10 @@ function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/auth" element={<AuthScreen />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="*" element={<Navigate to="/auth" />} />
+        <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </Router>
   );

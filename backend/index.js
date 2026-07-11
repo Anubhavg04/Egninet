@@ -123,11 +123,11 @@ app.put('/api/users/profile', authenticateToken, async (req, res) => {
     const { displayName, avatarId, status } = req.body;
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: 'User not found' });
-    
+
     if (displayName) user.displayName = displayName;
     if (avatarId) user.avatarId = avatarId;
     if (status) user.status = status;
-    
+
     await user.save();
     res.json({ id: user.id, displayName: user.displayName, avatarId: user.avatarId, status: user.status });
   } catch (error) {
@@ -150,10 +150,10 @@ app.post('/api/communities', authenticateToken, async (req, res) => {
   try {
     const { name, description, retentionMode, visibility } = req.body;
     const inviteCode = Math.random().toString(36).substring(2, 8);
-    const comm = await Community.create({ 
-      name, 
-      description, 
-      retentionMode, 
+    const comm = await Community.create({
+      name,
+      description,
+      retentionMode,
       visibility,
       ownerId: req.user.id,
       inviteCode
@@ -272,7 +272,7 @@ app.get('/api/dms', authenticateToken, async (req, res) => {
         uniqueDms.push(r);
       }
     }
-    
+
     console.log('uniqueDms length:', uniqueDms.length);
     res.json(uniqueDms);
   } catch (err) {
@@ -313,12 +313,12 @@ io.on('connection', (socket) => {
 
       const senderUser = await User.findByPk(senderId);
 
-      const msg = await Message.create({ 
-        text, 
-        senderId, 
-        communityId, 
-        expiresAt, 
-        attachmentUrl, 
+      const msg = await Message.create({
+        text,
+        senderId,
+        communityId,
+        expiresAt,
+        attachmentUrl,
         attachmentType,
         senderDisplayName: senderUser ? senderUser.displayName : 'Unknown',
         senderAvatarId: senderUser ? senderUser.avatarId : 'default',
@@ -349,7 +349,7 @@ io.on('connection', (socket) => {
   socket.on('whiteboard_update', ({ roomId, changes }) => {
     const rId = String(roomId);
     if (!whiteboardStates[rId]) whiteboardStates[rId] = {};
-    
+
     if (changes.added) {
       Object.values(changes.added).forEach(record => {
         whiteboardStates[rId][record.id] = record;
