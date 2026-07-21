@@ -127,21 +127,93 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* NEW: Stats & Trust Section */}
-      <section className={`py-16 px-6 relative -mt-10 z-20 transition-colors duration-1000 ${focusMode ? 'bg-[#050505]' : 'bg-canvas'}`}>
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-           <div className={`rounded-3xl p-8 shadow-xl flex flex-col items-center text-center animate-float transition-colors duration-1000 ${focusMode ? 'bg-gray-900 border border-gray-800 shadow-none' : 'bg-white shadow-teal-900/5 border border-gray-100'}`} style={{ animationDelay: '0s' }}>
-             <h3 className={`text-4xl font-black mb-2 ${focusMode ? 'text-gray-300' : 'gradient-text'}`}>10M+</h3>
-             <p className={`font-semibold uppercase tracking-widest text-sm ${focusMode ? 'text-gray-600' : 'text-gray-500'}`}>Lines Shipped</p>
-           </div>
-           <div className={`rounded-3xl p-8 shadow-xl flex flex-col items-center text-center animate-float transition-colors duration-1000 ${focusMode ? 'bg-gray-900 border border-gray-800 shadow-none' : 'bg-white shadow-teal-900/5 border border-gray-100'}`} style={{ animationDelay: '1s' }}>
-             <h3 className={`text-4xl font-black mb-2 ${focusMode ? 'text-gray-300' : 'gradient-text'}`}>50k+</h3>
-             <p className={`font-semibold uppercase tracking-widest text-sm ${focusMode ? 'text-gray-600' : 'text-gray-500'}`}>Communities</p>
-           </div>
-           <div className={`rounded-3xl p-8 shadow-xl flex flex-col items-center text-center animate-float transition-colors duration-1000 ${focusMode ? 'bg-gray-900 border border-gray-800 shadow-none' : 'bg-white shadow-teal-900/5 border border-gray-100'}`} style={{ animationDelay: '2s' }}>
-             <h3 className={`text-4xl font-black mb-2 ${focusMode ? 'text-gray-300' : 'gradient-text'}`}>Zero</h3>
-             <p className={`font-semibold uppercase tracking-widest text-sm ${focusMode ? 'text-gray-600' : 'text-gray-500'}`}>Distractions</p>
-           </div>
+      {/* Bento Box Feature Highlights */}
+      <section className={`py-24 px-6 relative z-20 transition-colors duration-1000 ${focusMode ? 'bg-[#050505]' : 'bg-gray-50'}`}>
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className={`text-3xl md:text-5xl font-black tracking-tight mb-4 transition-colors duration-1000 ${focusMode ? 'text-white' : 'text-gray-900'}`}>
+              Built for <span className="text-teal-500">Engineering Velocity</span>
+            </h2>
+            <p className={`text-lg md:text-xl max-w-2xl mx-auto transition-colors duration-1000 ${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>
+              Not just another chat app. EngiNet is packed with features designed specifically to remove friction from your development workflow.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[auto] md:auto-rows-[250px]">
+            {/* Tile 1: Executable Code Blocks (Span 2) */}
+            <div className={`col-span-1 md:col-span-2 row-span-1 rounded-3xl overflow-hidden relative group transition-all duration-500 hover:-translate-y-1 shadow-lg ${focusMode ? 'bg-[#0D1117] border border-gray-800' : 'bg-white border border-gray-200'}`}>
+               <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+               <div className="p-8 h-full flex flex-col md:flex-row items-center gap-8 relative z-10">
+                 <div className="flex-1">
+                   <div className="w-12 h-12 rounded-xl bg-teal-500/20 text-teal-500 flex items-center justify-center mb-4"><CommandLineIcon className="w-6 h-6" /></div>
+                   <h3 className={`text-2xl font-bold mb-2 ${focusMode ? 'text-white' : 'text-gray-900'}`}>Executable Code Blocks</h3>
+                   <p className={`${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>Stop context switching. Paste a snippet and run it directly in the chat to debug together instantly.</p>
+                 </div>
+                 <div className="flex-1 w-full bg-[#1e1e1e] rounded-xl p-4 font-mono text-sm shadow-inner transform group-hover:scale-105 transition-transform duration-500">
+                    <div className="flex items-center justify-between border-b border-gray-700 pb-2 mb-2">
+                       <span className="text-gray-400">api_test.js</span>
+                       <button className="bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1 rounded flex items-center gap-1">Run</button>
+                    </div>
+                    <div className="text-blue-400">fetch<span className="text-white">('/api/users')</span></div>
+                    <div className="text-white">  .then(res =&gt; res.<span className="text-blue-400">json</span>())</div>
+                    <div className="text-gray-500 mt-2 border-t border-gray-700 pt-2">{'>'} {`{ status: 200, data: [...] }`}</div>
+                 </div>
+               </div>
+            </div>
+
+            {/* Tile 2: Deep Work / Focus Mode */}
+            <div className={`col-span-1 row-span-1 rounded-3xl overflow-hidden relative group transition-all duration-500 hover:-translate-y-1 shadow-lg ${focusMode ? 'bg-[#0D1117] border border-gray-800' : 'bg-white border border-gray-200'}`}>
+               <div className="p-8 h-full flex flex-col justify-between relative z-10">
+                 <div>
+                   <div className="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-500 flex items-center justify-center mb-4"><EyeSlashIcon className="w-6 h-6" /></div>
+                   <h3 className={`text-xl font-bold mb-2 ${focusMode ? 'text-white' : 'text-gray-900'}`}>Deep Work Mode</h3>
+                   <p className={`text-sm ${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>Mute the noise. Let your team know you're in the zone automatically.</p>
+                 </div>
+                 <div className={`mt-4 rounded-lg p-3 flex items-center gap-3 ${focusMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">JD</div>
+                    <div>
+                       <div className={`text-xs font-bold flex items-center gap-1 ${focusMode ? 'text-white' : 'text-gray-900'}`}>Focusing <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span></div>
+                       <div className="text-xs text-gray-500">Working on API Auth</div>
+                    </div>
+                 </div>
+               </div>
+            </div>
+
+            {/* Tile 3: AI Summaries */}
+            <div className={`col-span-1 row-span-1 rounded-3xl overflow-hidden relative group transition-all duration-500 hover:-translate-y-1 shadow-lg ${focusMode ? 'bg-[#0D1117] border border-gray-800' : 'bg-white border border-gray-200'}`}>
+               <div className="p-8 h-full flex flex-col relative z-10">
+                 <div className="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-500 flex items-center justify-center mb-4"><SparklesIcon className="w-6 h-6" /></div>
+                 <h3 className={`text-xl font-bold mb-2 ${focusMode ? 'text-white' : 'text-gray-900'}`}>AI Thread Summaries</h3>
+                 <p className={`text-sm ${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>Catch up instantly. Wake up to 200 messages, click one button to get the 3 key decisions.</p>
+               </div>
+            </div>
+
+            {/* Tile 4: Ephemeral War Rooms (Span 2) */}
+            <div className={`col-span-1 md:col-span-2 row-span-1 rounded-3xl overflow-hidden relative group transition-all duration-500 hover:-translate-y-1 shadow-lg ${focusMode ? 'bg-[#0D1117] border border-gray-800' : 'bg-white border border-gray-200'}`}>
+               <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+               <div className="p-8 h-full flex flex-col md:flex-row items-center gap-8 relative z-10">
+                 <div className="flex-1">
+                   <div className="w-12 h-12 rounded-xl bg-red-500/20 text-red-500 flex items-center justify-center mb-4"><WrenchScrewdriverIcon className="w-6 h-6" /></div>
+                   <h3 className={`text-2xl font-bold mb-2 ${focusMode ? 'text-white' : 'text-gray-900'}`}>Ephemeral War Rooms</h3>
+                   <p className={`${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>Incident response made easy. Temporary channels that pull in logs, page the on-call, and self-destruct when resolved.</p>
+                 </div>
+                 <div className="flex-1 w-full flex justify-center relative">
+                    <div className="w-full max-w-[200px] h-32 bg-gray-900 rounded-xl border border-red-500/30 flex flex-col p-4 shadow-xl transform md:rotate-3 group-hover:rotate-0 transition-transform duration-500">
+                       <div className="flex items-center gap-2 mb-3">
+                          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
+                          <span className="text-red-400 text-xs font-bold uppercase">INCIDENT-404</span>
+                       </div>
+                       <div className="space-y-2">
+                          <div className="w-3/4 h-2 bg-gray-700 rounded"></div>
+                          <div className="w-full h-2 bg-gray-700 rounded"></div>
+                          <div className="w-1/2 h-2 bg-gray-700 rounded"></div>
+                       </div>
+                    </div>
+                 </div>
+               </div>
+            </div>
+
+          </div>
         </div>
       </section>
 
