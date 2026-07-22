@@ -1,20 +1,85 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  CodeBracketIcon, 
-  PaintBrushIcon, 
-  CubeTransparentIcon, 
-  CommandLineIcon, 
-  CpuChipIcon, 
-  BeakerIcon, 
-  WrenchScrewdriverIcon, 
-  SwatchIcon,
-  SparklesIcon
+import { gsap } from 'gsap';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
+import {
+  CommandLineIcon,
+  CpuChipIcon,
+  SparklesIcon,
+  PlayIcon,
+  ArrowRightIcon,
+  UsersIcon,
+  BoltIcon,
+  ShieldCheckIcon,
+  SunIcon,
+  MoonIcon,
 } from '@heroicons/react/24/solid';
-import { PencilIcon as PenTool, EyeSlashIcon, EyeIcon } from '@heroicons/react/24/outline';
+import { EyeSlashIcon, EyeIcon, PencilIcon } from '@heroicons/react/24/outline';
 
-const EngiNetLogo = ({ className, interactive = false }: { className?: string, interactive?: boolean }) => (
-  <svg className={`${className} ${interactive ? 'hover:rotate-180 transition-transform duration-700 cursor-pointer' : ''}`} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+gsap.registerPlugin(ScrollTrigger);
+
+// ─── Types ────────────────────────────────────────────────────────────────
+type Theme = 'dark' | 'light';
+
+// ─── Theme color maps ─────────────────────────────────────────────────────
+// These mirror the CSS variables but are accessible inline for components
+// that can't easily use CSS vars (e.g. dynamic SVGs, canvas-like elements).
+const THEME = {
+  dark: {
+    base: '#060B14',
+    surface1: '#0B1220',
+    surface2: '#0D1525',
+    surface3: '#111C2E',
+    border: 'rgba(255,255,255,0.07)',
+    borderSoft: 'rgba(255,255,255,0.04)',
+    text1: '#F0F4F8',
+    text2: '#9AA5B4',
+    text3: '#526070',
+    navBg: 'rgba(6,11,20,0.92)',
+    footerBg: '#030508',
+    gridLine: 'rgba(20,184,166,0.03)',
+    heroVignette: 'radial-gradient(ellipse 80% 60% at 50% 100%, transparent 40%, #060B14 100%)',
+    heroFade: 'linear-gradient(to bottom, transparent, #060B14)',
+    cardShadow: '0 4px 24px rgba(0,0,0,0.4)',
+    inputBorder: 'rgba(255,255,255,0.1)',
+    statsBg: '#0B1220',
+    statsBorder: 'rgba(255,255,255,0.06)',
+    // Chat bubbles in whiteboard mock
+    bubbleMine: '#14B8A6',
+    bubbleMineText: '#060B14',
+    bubbleTheirs: '#1A2233',
+    bubbleTheirsText: '#9AA5B4',
+  },
+  light: {
+    base: '#F5F7FA',
+    surface1: '#FFFFFF',
+    surface2: '#EEF1F7',
+    surface3: '#E4E8F0',
+    border: 'rgba(15,23,42,0.07)',
+    borderSoft: 'rgba(15,23,42,0.04)',
+    text1: '#0F172A',
+    text2: '#475569',
+    text3: '#94A3B8',
+    navBg: 'rgba(245,247,250,0.92)',
+    footerBg: '#EEF1F7',
+    gridLine: 'rgba(20,184,166,0.06)',
+    heroVignette: 'radial-gradient(ellipse 80% 60% at 50% 100%, transparent 40%, #F5F7FA 100%)',
+    heroFade: 'linear-gradient(to bottom, transparent, #F5F7FA)',
+    cardShadow: '0 2px 16px rgba(15,23,42,0.07)',
+    inputBorder: 'rgba(15,23,42,0.12)',
+    statsBg: '#FFFFFF',
+    statsBorder: 'rgba(15,23,42,0.07)',
+    // Chat bubbles
+    bubbleMine: '#14B8A6',
+    bubbleMineText: '#FFFFFF',
+    bubbleTheirs: '#E4E8F0',
+    bubbleTheirsText: '#475569',
+  },
+};
+
+// ─── Logo ─────────────────────────────────────────────────────────────────
+const Logo = ({ className = '' }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
     <path d="M22 8H12C9.79086 8 8 9.79086 8 12V20C8 22.2091 9.79086 24 12 24H22" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
     <path d="M8 16H18" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
     <circle cx="24" cy="8" r="4" fill="currentColor" />
@@ -23,431 +88,664 @@ const EngiNetLogo = ({ className, interactive = false }: { className?: string, i
   </svg>
 );
 
+// ─── Theme Toggle ─────────────────────────────────────────────────────────
+const ThemeToggle = ({ theme, onToggle }: { theme: Theme; onToggle: () => void }) => (
+  <div className="theme-toggle">
+    <button
+      className={`theme-toggle-btn ${theme === 'light' ? 'active' : ''}`}
+      onClick={() => theme === 'dark' && onToggle()}
+      title="Light mode"
+    >
+      <SunIcon className="w-4 h-4" />
+    </button>
+    <button
+      className={`theme-toggle-btn ${theme === 'dark' ? 'active' : ''}`}
+      onClick={() => theme === 'light' && onToggle()}
+      title="Dark mode"
+    >
+      <MoonIcon className="w-4 h-4" />
+    </button>
+  </div>
+);
+
+// ─── Code demo data ───────────────────────────────────────────────────────
+type Token = { text: string; cls: string };
+type CodeLang = { id: string; label: string; dotColor: string; lines: Token[][]; output: string; outputLabel: string };
+
+const CODE_LANGS: CodeLang[] = [
+  {
+    id: 'js', label: 'JavaScript', dotColor: '#F7DF1E',
+    lines: [
+      [{ text: '// Fibonacci — recursive', cls: 'token-comment' }],
+      [{ text: 'function ', cls: 'token-keyword' }, { text: 'fibonacci', cls: 'token-function' }, { text: '(n) {', cls: 'token-plain' }],
+      [{ text: '  if ', cls: 'token-keyword' }, { text: '(n <= ', cls: 'token-plain' }, { text: '1', cls: 'token-number' }, { text: ') return n;', cls: 'token-plain' }],
+      [{ text: '  return ', cls: 'token-keyword' }, { text: 'fibonacci', cls: 'token-function' }, { text: '(n-', cls: 'token-plain' }, { text: '1', cls: 'token-number' }, { text: ') + ', cls: 'token-plain' }, { text: 'fibonacci', cls: 'token-function' }, { text: '(n-', cls: 'token-plain' }, { text: '2', cls: 'token-number' }, { text: ');', cls: 'token-plain' }],
+      [{ text: '}', cls: 'token-plain' }],
+      [],
+      [{ text: 'console', cls: 'token-function' }, { text: '.log(', cls: 'token-plain' }, { text: 'fibonacci(', cls: 'token-function' }, { text: '10', cls: 'token-number' }, { text: '));', cls: 'token-plain' }],
+    ],
+    output: '55', outputLabel: 'fibonacci(10)',
+  },
+  {
+    id: 'py', label: 'Python', dotColor: '#3572A5',
+    lines: [
+      [{ text: '# Factorial — recursive', cls: 'token-comment' }],
+      [{ text: 'def ', cls: 'token-keyword' }, { text: 'factorial', cls: 'token-function' }, { text: '(n):', cls: 'token-plain' }],
+      [{ text: '    if ', cls: 'token-keyword' }, { text: 'n == ', cls: 'token-plain' }, { text: '0', cls: 'token-number' }, { text: ': return ', cls: 'token-keyword' }, { text: '1', cls: 'token-number' }],
+      [{ text: '    return ', cls: 'token-keyword' }, { text: 'n * ', cls: 'token-plain' }, { text: 'factorial', cls: 'token-function' }, { text: '(n - ', cls: 'token-plain' }, { text: '1', cls: 'token-number' }, { text: ')', cls: 'token-plain' }],
+      [],
+      [{ text: 'print', cls: 'token-function' }, { text: '(', cls: 'token-plain' }, { text: 'factorial', cls: 'token-function' }, { text: '(', cls: 'token-plain' }, { text: '7', cls: 'token-number' }, { text: '))', cls: 'token-plain' }],
+    ],
+    output: '5040', outputLabel: 'factorial(7)',
+  },
+];
+
+// ─── Code IDE Demo (always dark, code editors are dark) ───────────────────
+const CodeDemo = () => {
+  const [langIdx, setLangIdx] = useState(0);
+  const [visibleLines, setVisibleLines] = useState(0);
+  const [phase, setPhase] = useState<'idle' | 'typing' | 'running' | 'done'>('idle');
+  const [showOutput, setShowOutput] = useState(false);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasStarted = useRef(false);
+  const lang = CODE_LANGS[langIdx];
+
+  const clearTimers = () => { timers.current.forEach(clearTimeout); timers.current = []; };
+
+  const runDemo = useCallback((lines: Token[][]) => {
+    clearTimers();
+    setVisibleLines(0);
+    setPhase('typing');
+    setShowOutput(false);
+    lines.forEach((_, i) => {
+      const t = setTimeout(() => {
+        setVisibleLines(i + 1);
+        if (i === lines.length - 1) {
+          const t2 = setTimeout(() => {
+            setPhase('running');
+            const t3 = setTimeout(() => { setPhase('done'); setShowOutput(true); }, 1000);
+            timers.current.push(t3);
+          }, 500);
+          timers.current.push(t2);
+        }
+      }, i * 175 + 200);
+      timers.current.push(t);
+    });
+  }, []);
+
+  const switchLang = (idx: number) => {
+    clearTimers();
+    setLangIdx(idx);
+    setVisibleLines(0);
+    setPhase('idle');
+    setShowOutput(false);
+    setTimeout(() => runDemo(CODE_LANGS[idx].lines), 80);
+  };
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const trigger = ScrollTrigger.create({
+      trigger: el, start: 'top 68%', once: true,
+      onEnter: () => {
+        if (!hasStarted.current) {
+          hasStarted.current = true;
+          gsap.fromTo(el, { opacity: 0, y: 48 }, {
+            opacity: 1, y: 0, duration: 0.9, ease: 'power3.out',
+            onComplete: () => runDemo(lang.lines),
+          });
+        }
+      },
+    });
+    return () => { trigger.kill(); clearTimers(); };
+  }, []);
+
+  return (
+    <div ref={containerRef} className="opacity-0 w-full">
+      {/* Always dark – code editors are always dark */}
+      <div className="rounded-2xl overflow-hidden border shadow-[0_32px_80px_rgba(0,0,0,0.55)]"
+        style={{ background: '#0B1220', borderColor: 'rgba(255,255,255,0.08)' }}>
+
+        {/* Title bar */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ background: '#0D1525', borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex gap-1.5">
+            <div className="w-3 h-3 rounded-full" style={{ background: '#FF5F56' }} />
+            <div className="w-3 h-3 rounded-full" style={{ background: '#FFBD2E' }} />
+            <div className="w-3 h-3 rounded-full" style={{ background: '#27C93F' }} />
+          </div>
+          <span className="flex-1 text-center text-[11px] font-mono-code" style={{ color: '#3D5166' }}>
+            enginet — live code block
+          </span>
+          <div className="w-14" />
+        </div>
+
+        {/* Language tabs */}
+        <div className="flex border-b" style={{ background: '#0D1525', borderColor: 'rgba(255,255,255,0.06)' }}>
+          {CODE_LANGS.map((l, i) => (
+            <button key={l.id} onClick={() => switchLang(i)}
+              className={`flex items-center gap-2 px-5 py-2.5 text-[12px] font-semibold font-mono-code border-b-2 transition-all duration-200 ${
+                langIdx === i ? 'border-[#14B8A6] text-[#14B8A6] bg-[#14B8A6]/5' : 'border-transparent text-[#3D5166] hover:text-[#9AA5B4]'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full inline-block" style={{ background: l.dotColor }} />
+              {l.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Editor */}
+        <div className="flex min-h-[196px] relative overflow-hidden">
+          {phase === 'typing' && <div className="scan-line" />}
+          {/* Gutter */}
+          <div className="select-none px-4 pt-5 pb-4 text-right font-mono-code text-xs border-r"
+            style={{ color: '#233044', minWidth: '44px', borderColor: 'rgba(255,255,255,0.05)' }}>
+            {lang.lines.map((_, i) => <div key={i} className="leading-7">{i + 1}</div>)}
+          </div>
+          {/* Code */}
+          <div className="flex-1 px-5 pt-5 pb-4 font-mono-code text-[13px]">
+            {lang.lines.map((tokens, i) => (
+              <div key={`${langIdx}-${i}`} className="leading-7 transition-all duration-150"
+                style={{ opacity: i < visibleLines ? 1 : 0, transform: i < visibleLines ? 'none' : 'translateX(-6px)', transitionDelay: `${i * 8}ms` }}>
+                {tokens.length === 0
+                  ? <span>&nbsp;</span>
+                  : tokens.map((tok, j) => <span key={j} className={tok.cls}>{tok.text}</span>)}
+              </div>
+            ))}
+            {phase === 'typing' && visibleLines > 0 && (
+              <span className="inline-block w-[2px] h-5 bg-[#14B8A6] cursor-blink align-middle ml-0.5" />
+            )}
+          </div>
+        </div>
+
+        {/* Run bar */}
+        <div className="flex items-center justify-between px-4 py-3 border-t"
+          style={{ background: '#0D1525', borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full transition-colors ${
+              phase === 'running' ? 'bg-yellow-400 animate-pulse' : phase === 'done' ? 'bg-green-400' : 'bg-[#233044]'
+            }`} />
+            <span className="text-[11px] font-mono-code" style={{ color: '#3D5166' }}>
+              {phase === 'typing' ? 'typing...' : phase === 'running' ? 'executing...' : phase === 'done' ? 'completed in 0.3s' : 'ready'}
+            </span>
+          </div>
+          <button onClick={() => runDemo(lang.lines)} disabled={phase === 'running' || phase === 'typing'}
+            className={`flex items-center gap-1.5 px-4 py-1.5 rounded-md text-[12px] font-bold font-mono-code border transition-all duration-200 ${
+              phase === 'running' || phase === 'typing'
+                ? 'border-yellow-500/30 text-yellow-400/60 cursor-not-allowed'
+                : 'border-[#14B8A6]/30 text-[#14B8A6] hover:bg-[#14B8A6]/10 hover:border-[#14B8A6]/50'
+            }`}>
+            <PlayIcon className="w-3 h-3" />
+            {phase === 'running' ? 'Running...' : 'Run'}
+          </button>
+        </div>
+
+        {/* Output */}
+        <div style={{ maxHeight: showOutput ? '100px' : '0px', opacity: showOutput ? 1 : 0, overflow: 'hidden', transition: 'max-height 0.5s cubic-bezier(0.16,1,0.3,1), opacity 0.35s ease' }}>
+          <div className="px-5 py-4 border-t font-mono-code text-[13px]"
+            style={{ background: '#070E1A', borderColor: 'rgba(20,184,166,0.12)' }}>
+            <div className="text-[10px] uppercase tracking-widest font-bold mb-2" style={{ color: '#233044' }}>stdout</div>
+            <div className="flex items-center gap-2">
+              <span style={{ color: '#233044' }}>{'>'}</span>
+              <span className="token-output">{lang.output}</span>
+              <span className="text-[10px] ml-2 px-2 py-0.5 rounded font-mono-code" style={{ background: 'rgba(20,184,166,0.08)', color: '#14B8A6' }}>{lang.outputLabel}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ─── Landing Page ─────────────────────────────────────────────────────────
 const Landing = () => {
-  const [scrollY, setScrollY] = useState(0);
-  const [focusMode, setFocusMode] = useState(false);
+  const [theme, setTheme] = useState<Theme>('dark');
+  const [scrolled, setScrolled] = useState(false);
   const [ctaInput, setCtaInput] = useState('');
   const [isDeploying, setIsDeploying] = useState(false);
   const navigate = useNavigate();
 
+  const t = THEME[theme];
+
+  const heroRef    = useRef<HTMLDivElement>(null);
+  const statsRef   = useRef<HTMLDivElement>(null);
+  const cardsRef   = useRef<HTMLDivElement>(null);
+  const stepsRef   = useRef<HTMLDivElement>(null);
+
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
+
   const handleDeploy = () => {
     if (!ctaInput.trim() || isDeploying) return;
     setIsDeploying(true);
-    setTimeout(() => {
-      navigate('/auth');
-    }, 1500);
+    setTimeout(() => navigate('/auth'), 1600);
   };
 
   useEffect(() => {
-    const handleScroll = () => setScrollY(window.scrollY);
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    const onScroll = () => setScrolled(window.scrollY > 40);
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
+  useEffect(() => {
+    if (heroRef.current) {
+      gsap.fromTo(heroRef.current.querySelectorAll('.hero-item'),
+        { opacity: 0, y: 30 }, { opacity: 1, y: 0, duration: 0.85, stagger: 0.11, ease: 'power3.out', delay: 0.1 });
+    }
+    if (statsRef.current) {
+      gsap.fromTo(statsRef.current.querySelectorAll('.stat'),
+        { opacity: 0, y: 18 }, { opacity: 1, y: 0, duration: 0.55, stagger: 0.09, ease: 'power2.out',
+          scrollTrigger: { trigger: statsRef.current, start: 'top 80%' } });
+    }
+    if (cardsRef.current) {
+      gsap.fromTo(cardsRef.current.querySelectorAll('.feat-card'),
+        { opacity: 0, y: 32, scale: 0.97 }, { opacity: 1, y: 0, scale: 1, duration: 0.6, stagger: 0.08, ease: 'power3.out',
+          scrollTrigger: { trigger: cardsRef.current, start: 'top 72%' } });
+    }
+    if (stepsRef.current) {
+      gsap.fromTo(stepsRef.current.querySelectorAll('.step-card'),
+        { opacity: 0, x: -20 }, { opacity: 1, x: 0, duration: 0.5, stagger: 0.11, ease: 'power2.out',
+          scrollTrigger: { trigger: stepsRef.current, start: 'top 74%' } });
+    }
+    return () => ScrollTrigger.getAll().forEach(t => t.kill());
+  }, []);
+
+  // ── Shared section styles ──────────────────────────────────────────────
+  const surface1Style = { background: t.surface1 };
+  const surface2Style = { background: t.surface2 };
+
   return (
-    <div className={`min-h-screen font-sans transition-colors duration-1000 overflow-x-hidden ${focusMode ? 'bg-[#050505] text-gray-400' : 'bg-white text-gray-800'} selection:bg-teal-500 selection:text-white`}>
-      {/* Navigation */}
-      <nav className={`fixed top-0 left-0 right-0 z-50 transition-all duration-700 ${scrollY > 50 ? (focusMode ? 'bg-[#050505]/95 border-b border-gray-900' : 'bg-[#0D9488]/95') : 'bg-transparent'} backdrop-blur-md shadow-lg py-3`}>
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity">
-            <EngiNetLogo className="w-8 h-8" interactive={true} />
-            <span className="text-xl font-bold tracking-tight" style={{ fontFamily: "'Righteous', system-ui, cursive" }}>EngiNet</span>
+    <div className="landing" data-theme={theme} style={{ background: t.base }}>
+
+      {/* ── Navbar ──────────────────────────────────────────────────────── */}
+      <nav className="fixed top-0 left-0 right-0 z-50 transition-all duration-400"
+        style={{
+          background: scrolled ? t.navBg : 'transparent',
+          backdropFilter: scrolled ? 'blur(20px)' : 'none',
+          borderBottom: scrolled ? `1px solid ${t.border}` : '1px solid transparent',
+        }}>
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+            <Logo className="w-7 h-7 text-[#14B8A6]" />
+            <span className="text-[18px] font-black font-display tracking-wide" style={{ color: t.text1 }}>EngiNet</span>
           </Link>
-          
-          <div className={`hidden md:flex items-center gap-8 font-semibold text-[15px] transition-colors duration-700 ${focusMode ? 'text-gray-500' : 'text-white'}`}>
-            <a href="#features" className="hover:text-teal-400 transition-colors">Features</a>
-            <a href="#focus" className="hover:text-teal-400 transition-colors">Focus Mode</a>
-            <a href="#safety" className="hover:text-teal-400 transition-colors">Safety</a>
-            <a href="#support" className="hover:text-teal-400 transition-colors">Support</a>
+
+          <div className="hidden md:flex items-center gap-8 text-sm font-medium" style={{ color: t.text2 }}>
+            {(['Features', '#features'], ['Code Execution', '#code-execution'], ['Workflow', '#workflow']).map(() => null)}
+            <a href="#features" className="hover:text-[#14B8A6] transition-colors">Features</a>
+            <a href="#code-execution" className="hover:text-[#14B8A6] transition-colors">Code Execution</a>
+            <a href="#workflow" className="hover:text-[#14B8A6] transition-colors">Workflow</a>
           </div>
 
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => setFocusMode(!focusMode)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-full font-semibold text-sm transition-all duration-500 border ${focusMode ? 'border-teal-900/50 text-teal-500 hover:bg-teal-900/20' : 'border-white/20 text-white hover:bg-white/10'}`}
-              title="Toggle Focus Mode"
-            >
-              {focusMode ? <EyeIcon className="w-4 h-4" /> : <EyeSlashIcon className="w-4 h-4" />}
-              <span className="hidden sm:inline">{focusMode ? 'Exit Focus' : 'Focus Mode'}</span>
-            </button>
-            <Link 
-              to="/auth" 
-              className={`px-5 py-2.5 rounded-full font-bold text-sm transition-all shadow-sm hover:shadow-md ${focusMode ? 'bg-gray-900 text-teal-500 border border-gray-800 hover:bg-gray-800' : 'bg-white text-teal-800 hover:bg-teal-50'}`}
-            >
-              Login
+          <div className="flex items-center gap-3">
+            <ThemeToggle theme={theme} onToggle={toggleTheme} />
+            <Link to="/auth"
+              className="px-5 py-2 rounded-lg text-sm font-bold transition-all hover:opacity-90"
+              style={{ background: '#14B8A6', color: theme === 'dark' ? '#060B14' : '#FFFFFF' }}>
+              Get started
             </Link>
           </div>
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className={`relative pt-32 pb-24 md:pt-48 md:pb-32 transition-colors duration-1000 ${focusMode ? 'bg-[#050505]' : 'bg-[#0D9488]'} overflow-hidden flex flex-col items-center justify-center text-center px-4`}>
-        {/* Animated Background Mesh */}
-        <div className={`absolute inset-0 mix-blend-color-burn transition-opacity duration-1000 ${focusMode ? 'opacity-0' : 'opacity-30'}`}>
-           <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-400 blur-3xl animate-pulse"></div>
-           <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] rounded-full bg-indigo-500 blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+      {/* ── Hero ────────────────────────────────────────────────────────── */}
+      <section className="relative min-h-screen flex items-center justify-center text-center px-6 overflow-hidden pt-24">
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="glow-orb-teal" style={{ top: '-8%', left: '50%', transform: 'translateX(-50%)' }} />
+          <div className="glow-orb-indigo" style={{ bottom: '8%', right: '8%' }} />
+          {/* Grid */}
+          <div className="absolute inset-0" style={{
+            backgroundImage: `linear-gradient(${t.gridLine} 1px,transparent 1px),linear-gradient(90deg,${t.gridLine} 1px,transparent 1px)`,
+            backgroundSize: '60px 60px',
+          }} />
+          <div className="absolute inset-0" style={{ background: t.heroVignette }} />
         </div>
 
-        {/* Floating Icons Background */}
-        <div className={`absolute inset-0 pointer-events-none transition-opacity duration-1000 ${focusMode ? 'opacity-0' : 'opacity-20'}`}>
-          <CodeBracketIcon className="absolute top-[15%] left-[8%] w-16 h-16 text-white rotate-12 animate-pulse" />
-          <PaintBrushIcon className="absolute top-[20%] right-[12%] w-20 h-20 text-white -rotate-12 animate-bounce" style={{ animationDuration: '3s' }} />
-          <CubeTransparentIcon className="absolute bottom-[25%] left-[10%] w-24 h-24 text-white rotate-45 opacity-60" />
-          <CommandLineIcon className="absolute bottom-[15%] right-[20%] w-16 h-16 text-white -rotate-6 animate-pulse" style={{ animationDuration: '4s' }} />
-          <CpuChipIcon className="absolute top-[45%] left-[2%] w-12 h-12 text-white rotate-90" />
-          <BeakerIcon className="absolute top-[10%] right-[30%] w-14 h-14 text-white rotate-12 opacity-70" />
-          <WrenchScrewdriverIcon className="absolute bottom-[40%] right-[5%] w-20 h-20 text-white -rotate-45" />
-          <SwatchIcon className="absolute top-[60%] left-[25%] w-16 h-16 text-white rotate-12 animate-bounce" style={{ animationDuration: '5s' }} />
-        </div>
-
-        <div className={`relative z-10 max-w-5xl mx-auto transform transition-all duration-1000 hover:scale-[1.01] ${focusMode ? 'opacity-80' : 'opacity-100'}`}>
-          <h1 className={`text-5xl md:text-6xl lg:text-8xl font-black tracking-tighter mb-8 drop-shadow-xl transition-colors duration-1000 ${focusMode ? 'text-gray-200' : 'text-white'}`} style={{ fontFamily: "'Righteous', system-ui, cursive" }}>
-            IMAGINE A WORKSPACE...
+        <div ref={heroRef} className="relative z-10 max-w-4xl mx-auto">
+          <div className="hero-item section-label mb-8 mx-auto w-fit">
+            <BoltIcon className="w-3 h-3" /> Real-time engineering chat
+          </div>
+          <h1 className="hero-item font-display font-black tracking-tighter mb-6 leading-none"
+            style={{ fontSize: 'clamp(2.8rem,8vw,6rem)', color: t.text1 }}>
+            Where engineers<br />
+            <span className="text-brand-gradient">build together.</span>
           </h1>
-          <p className={`text-xl md:text-2xl max-w-3xl mx-auto leading-relaxed mb-12 font-medium drop-shadow-md transition-colors duration-1000 ${focusMode ? 'text-gray-500' : 'text-teal-50'}`}>
-            ...where you can belong to a developer club, a study group, or just a private community to ship your ideas. Where it's easy to talk every day and hang out more often.
+          <p className="hero-item text-lg md:text-xl max-w-2xl mx-auto mb-10 leading-relaxed" style={{ color: t.text2 }}>
+            EngiNet is the chat platform built specifically for developers — with executable code blocks, real-time collaborative whiteboard, and deep work focus mode.
           </p>
-          
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
-            <Link 
-              to="/auth" 
-              className={`px-8 py-4 rounded-full font-bold text-lg transition-all w-full sm:w-auto flex items-center justify-center gap-3 animate-pulse-glow hover:scale-105 ${focusMode ? 'bg-gray-900 text-teal-400 border border-teal-900/50 hover:bg-gray-800' : 'bg-white text-gray-900 hover:bg-gray-50'}`}
-            >
-              Open EngiNet in your browser
-              <SparklesIcon className="w-5 h-5 text-teal-500" />
+          <div className="hero-item flex flex-col sm:flex-row items-center justify-center gap-4">
+            <Link to="/auth"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-bold text-base transition-all hover:scale-105 hover:shadow-[0_0_28px_rgba(20,184,166,0.28)]"
+              style={{ background: '#14B8A6', color: theme === 'dark' ? '#060B14' : '#FFFFFF' }}>
+              Open EngiNet <ArrowRightIcon className="w-4 h-4" />
             </Link>
+            <a href="#code-execution"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 px-7 py-3.5 rounded-xl font-bold text-base border transition-all hover:bg-[#14B8A6]/5"
+              style={{ borderColor: t.border, color: t.text2 }}>
+              <PlayIcon className="w-4 h-4 text-[#14B8A6]" /> See code execution
+            </a>
+          </div>
+          <div className="hero-item mt-10 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium border"
+            style={{ borderColor: t.border, color: t.text3, background: theme === 'dark' ? 'rgba(255,255,255,0.02)' : 'rgba(255,255,255,0.6)' }}>
+            <ShieldCheckIcon className="w-3.5 h-3.5 text-[#14B8A6]" />
+            5-second sandbox timeout · JavaScript & Python · zero install
           </div>
         </div>
-        
-        {/* Wavy bottom edge */}
-        <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-none">
-          <svg className={`relative block w-full h-[50px] md:h-[100px] transition-colors duration-1000 ${focusMode ? 'fill-[#050505]' : 'fill-[#eef1f5]'}`} data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
-            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V95.8C59.71,118.08,130.83,121.32,201.2,111.45,242.09,105.74,282.8,92.21,321.39,56.44Z"></path>
-          </svg>
+
+        <div className="absolute bottom-0 left-0 right-0 h-28 pointer-events-none" style={{ background: t.heroFade }} />
+      </section>
+
+      {/* ── Stats bar ───────────────────────────────────────────────────── */}
+      <section className="stats-section py-14 px-6">
+        <div ref={statsRef} className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
+          {[
+            { value: '<5s', label: 'Execution timeout' },
+            { value: '2', label: 'Languages supported' },
+            { value: '∞', label: 'Collaborators per room' },
+            { value: '~0ms', label: 'Output broadcast lag' },
+          ].map(s => (
+            <div key={s.label} className="stat text-center">
+              <div className="text-3xl md:text-4xl font-black font-display text-[#14B8A6] mb-1">{s.value}</div>
+              <div className="text-sm" style={{ color: t.text3 }}>{s.label}</div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Bento Box Feature Highlights */}
-      <section className={`py-24 px-6 relative z-20 transition-colors duration-1000 ${focusMode ? 'bg-[#050505]' : 'bg-gray-50'}`}>
+      {/* ── Feature cards ───────────────────────────────────────────────── */}
+      <section id="features" className="py-24 px-6" style={{ background: t.base }}>
         <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className={`text-3xl md:text-5xl font-black tracking-tight mb-4 transition-colors duration-1000 ${focusMode ? 'text-white' : 'text-gray-900'}`}>
-              Built for <span className="text-teal-500">Engineering Velocity</span>
+          <div className="text-center mb-14">
+            <div className="section-label mx-auto w-fit mb-6">
+              <SparklesIcon className="w-3 h-3" /> Platform features
+            </div>
+            <h2 className="text-3xl md:text-5xl font-black font-display tracking-tight mb-4" style={{ color: t.text1 }}>
+              Built for <span className="text-[#14B8A6]">engineering velocity</span>
             </h2>
-            <p className={`text-lg md:text-xl max-w-2xl mx-auto transition-colors duration-1000 ${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>
-              Not just another chat app. EngiNet is packed with features designed specifically to remove friction from your development workflow.
+            <p className="text-lg max-w-xl mx-auto" style={{ color: t.text3 }}>
+              Every feature exists to remove friction between you and your team.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 auto-rows-[auto] md:auto-rows-[250px]">
-            {/* Tile 1: Executable Code Blocks (Span 2) */}
-            <div className={`col-span-1 md:col-span-2 row-span-1 rounded-3xl overflow-hidden relative group transition-all duration-500 hover:-translate-y-1 shadow-lg ${focusMode ? 'bg-[#0D1117] border border-gray-800' : 'bg-white border border-gray-200'}`}>
-               <div className="absolute inset-0 bg-gradient-to-br from-teal-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-               <div className="p-8 h-full flex flex-col md:flex-row items-center gap-8 relative z-10">
-                 <div className="flex-1">
-                   <div className="w-12 h-12 rounded-xl bg-teal-500/20 text-teal-500 flex items-center justify-center mb-4"><CommandLineIcon className="w-6 h-6" /></div>
-                   <h3 className={`text-2xl font-bold mb-2 ${focusMode ? 'text-white' : 'text-gray-900'}`}>Executable Code Blocks</h3>
-                   <p className={`${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>Stop context switching. Paste a snippet and run it directly in the chat to debug together instantly.</p>
-                 </div>
-                 <div className="flex-1 w-full bg-[#1e1e1e] rounded-xl p-4 font-mono text-sm shadow-inner transform group-hover:scale-105 transition-transform duration-500">
-                    <div className="flex items-center justify-between border-b border-gray-700 pb-2 mb-2">
-                       <span className="text-gray-400">api_test.js</span>
-                       <button className="bg-green-600 hover:bg-green-500 text-white text-xs px-3 py-1 rounded flex items-center gap-1">Run</button>
-                    </div>
-                    <div className="text-blue-400">fetch<span className="text-white">('/api/users')</span></div>
-                    <div className="text-white">  .then(res =&gt; res.<span className="text-blue-400">json</span>())</div>
-                    <div className="text-gray-500 mt-2 border-t border-gray-700 pt-2">{'>'} {`{ status: 200, data: [...] }`}</div>
-                 </div>
-               </div>
-            </div>
-
-            {/* Tile 2: Deep Work / Focus Mode */}
-            <div className={`col-span-1 row-span-1 rounded-3xl overflow-hidden relative group transition-all duration-500 hover:-translate-y-1 shadow-lg ${focusMode ? 'bg-[#0D1117] border border-gray-800' : 'bg-white border border-gray-200'}`}>
-               <div className="p-8 h-full flex flex-col justify-between relative z-10">
-                 <div>
-                   <div className="w-12 h-12 rounded-xl bg-indigo-500/20 text-indigo-500 flex items-center justify-center mb-4"><EyeSlashIcon className="w-6 h-6" /></div>
-                   <h3 className={`text-xl font-bold mb-2 ${focusMode ? 'text-white' : 'text-gray-900'}`}>Deep Work Mode</h3>
-                   <p className={`text-sm ${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>Mute the noise. Let your team know you're in the zone automatically.</p>
-                 </div>
-                 <div className={`mt-4 rounded-lg p-3 flex items-center gap-3 ${focusMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center text-white font-bold text-xs">JD</div>
-                    <div>
-                       <div className={`text-xs font-bold flex items-center gap-1 ${focusMode ? 'text-white' : 'text-gray-900'}`}>Focusing <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span></div>
-                       <div className="text-xs text-gray-500">Working on API Auth</div>
-                    </div>
-                 </div>
-               </div>
-            </div>
-
-            {/* Tile 3: AI Summaries */}
-            <div className={`col-span-1 row-span-1 rounded-3xl overflow-hidden relative group transition-all duration-500 hover:-translate-y-1 shadow-lg ${focusMode ? 'bg-[#0D1117] border border-gray-800' : 'bg-white border border-gray-200'}`}>
-               <div className="p-8 h-full flex flex-col relative z-10">
-                 <div className="w-12 h-12 rounded-xl bg-purple-500/20 text-purple-500 flex items-center justify-center mb-4"><SparklesIcon className="w-6 h-6" /></div>
-                 <h3 className={`text-xl font-bold mb-2 ${focusMode ? 'text-white' : 'text-gray-900'}`}>AI Thread Summaries</h3>
-                 <p className={`text-sm ${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>Catch up instantly. Wake up to 200 messages, click one button to get the 3 key decisions.</p>
-               </div>
-            </div>
-
-            {/* Tile 4: Ephemeral War Rooms (Span 2) */}
-            <div className={`col-span-1 md:col-span-2 row-span-1 rounded-3xl overflow-hidden relative group transition-all duration-500 hover:-translate-y-1 shadow-lg ${focusMode ? 'bg-[#0D1117] border border-gray-800' : 'bg-white border border-gray-200'}`}>
-               <div className="absolute inset-0 bg-gradient-to-r from-red-500/5 to-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-               <div className="p-8 h-full flex flex-col md:flex-row items-center gap-8 relative z-10">
-                 <div className="flex-1">
-                   <div className="w-12 h-12 rounded-xl bg-red-500/20 text-red-500 flex items-center justify-center mb-4"><WrenchScrewdriverIcon className="w-6 h-6" /></div>
-                   <h3 className={`text-2xl font-bold mb-2 ${focusMode ? 'text-white' : 'text-gray-900'}`}>Ephemeral War Rooms</h3>
-                   <p className={`${focusMode ? 'text-gray-400' : 'text-gray-600'}`}>Incident response made easy. Temporary channels that pull in logs, page the on-call, and self-destruct when resolved.</p>
-                 </div>
-                 <div className="flex-1 w-full flex justify-center relative">
-                    <div className="w-full max-w-[200px] h-32 bg-gray-900 rounded-xl border border-red-500/30 flex flex-col p-4 shadow-xl transform md:rotate-3 group-hover:rotate-0 transition-transform duration-500">
-                       <div className="flex items-center gap-2 mb-3">
-                          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></div>
-                          <span className="text-red-400 text-xs font-bold uppercase">INCIDENT-404</span>
-                       </div>
-                       <div className="space-y-2">
-                          <div className="w-3/4 h-2 bg-gray-700 rounded"></div>
-                          <div className="w-full h-2 bg-gray-700 rounded"></div>
-                          <div className="w-1/2 h-2 bg-gray-700 rounded"></div>
-                       </div>
-                    </div>
-                 </div>
-               </div>
-            </div>
-
+          <div ref={cardsRef} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              { icon: CommandLineIcon, title: 'Executable Code Blocks', desc: 'Paste a snippet in JavaScript or Python and hit Run. Everyone in the chat sees the output in real-time via Socket.IO.', accent: '#14B8A6' },
+              { icon: UsersIcon, title: 'Shared Execution Output', desc: 'When anyone clicks Run, the result broadcasts to every member simultaneously — no copy-pasting logs or screenshots.', accent: '#818CF8' },
+              { icon: EyeSlashIcon, title: 'Deep Work Mode', desc: "Toggle focus mode to mute the UI and signal to your team that you're heads-down. Status syncs automatically.", accent: '#F472B6' },
+              { icon: PencilIcon, title: 'Collaborative Whiteboard', desc: 'Jump into a shared canvas from any chat. Sketch architecture diagrams and UI flows together in real-time.', accent: '#FB923C' },
+              { icon: ShieldCheckIcon, title: 'Sandboxed Execution', desc: 'Code runs in an isolated child process with a strict 5-second timeout. Infinite loops are caught and reported.', accent: '#34D399' },
+              { icon: BoltIcon, title: 'Community Channels', desc: 'Organize your team into topic-based channels. Messages auto-expire after 30 days so signal never gets buried.', accent: '#FBBF24' },
+            ].map((f, i) => (
+              <div key={i} className="feat-card">
+                <div className="feat-card-inner" style={{ boxShadow: t.cardShadow }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+                    style={{ background: `${f.accent}14`, color: f.accent }}>
+                    <f.icon className="w-5 h-5" />
+                  </div>
+                  <h3 className="font-bold text-[15px] mb-2" style={{ color: t.text1 }}>{f.title}</h3>
+                  <p className="text-sm leading-relaxed" style={{ color: t.text3 }}>{f.desc}</p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section id="features" className={`py-24 px-6 md:px-12 max-w-7xl mx-auto flex flex-col gap-32 transition-all duration-1000 ${focusMode ? 'grayscale' : ''}`}>
-        {/* Feature 1 */}
-        <div className="flex flex-col md:flex-row items-center gap-12 lg:gap-24 group">
-          <div className={`flex-1 w-full aspect-video rounded-3xl overflow-hidden shadow-2xl border transition-transform duration-700 group-hover:-rotate-2 group-hover:scale-105 ${focusMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
-            <img src="/wallpapers/illustration_cyber_market_1783749875141.png" alt="EngiNet Feature" className={`w-full h-full object-cover ${focusMode ? 'opacity-50' : ''}`} />
-          </div>
-          <div className="flex-1 transition-all duration-700 group-hover:translate-x-4">
-            <h2 className={`text-3xl md:text-5xl font-extrabold tracking-tight leading-tight mb-6 transition-colors duration-1000 ${focusMode ? 'text-gray-300' : 'text-gray-900'}`}>
-              Create an invite-only place where you belong
-            </h2>
-            <p className={`text-lg leading-relaxed transition-colors duration-1000 ${focusMode ? 'text-gray-500' : 'text-gray-600'}`}>
-              EngiNet servers are organized into topic-based channels where you can collaborate, share, and just talk about your day without clogging up a group chat.
-            </p>
-          </div>
+      {/* ── Code Execution section ───────────────────────────────────────── */}
+      <section id="code-execution" className="py-24 px-6 relative overflow-hidden" style={surface1Style}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="glow-orb-teal" style={{ top: '15%', right: '-18%' }} />
+          <div className="absolute inset-0" style={{
+            backgroundImage: `linear-gradient(${t.gridLine} 1px,transparent 1px),linear-gradient(90deg,${t.gridLine} 1px,transparent 1px)`,
+            backgroundSize: '48px 48px',
+          }} />
         </div>
 
-        {/* Feature 2 */}
-        <div className="flex flex-col md:flex-row-reverse items-center gap-12 lg:gap-24 group">
-          <div className={`flex-1 w-full aspect-video rounded-3xl overflow-hidden shadow-2xl border transition-transform duration-700 group-hover:rotate-2 group-hover:scale-105 ${focusMode ? 'bg-gray-900 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
-             <img src="/wallpapers/designer_abstract_dark_1783750027689.png" alt="EngiNet Hangout" className={`w-full h-full object-cover ${focusMode ? 'opacity-50' : ''}`} />
-          </div>
-          <div className="flex-1 transition-all duration-700 group-hover:-translate-x-4">
-            <h2 className={`text-3xl md:text-5xl font-extrabold tracking-tight leading-tight mb-6 transition-colors duration-1000 ${focusMode ? 'text-gray-300' : 'text-gray-900'}`}>
-              Where hanging out is easy
-            </h2>
-            <p className={`text-lg leading-relaxed transition-colors duration-1000 ${focusMode ? 'text-gray-500' : 'text-gray-600'}`}>
-              Grab a seat in a community. Friends in your server can see you're around and instantly pop in to talk without having to call.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Feature 3 - Whiteboard Showcase */}
-      <section id="whiteboard" className="relative py-32 md:py-48 mt-12 bg-gray-900 overflow-hidden">
-        <div className="absolute inset-0">
-          <img src="/wallpapers/cinematic_scifi_city_1783749487100.png" alt="Collaborative Environment" className="w-full h-full object-cover opacity-40 mix-blend-luminosity" />
-          <div className="absolute inset-0 bg-gradient-to-t from-gray-900 via-gray-900/60 to-transparent"></div>
-        </div>
-        
-        <div className="relative z-10 max-w-5xl mx-auto px-6 text-center">
-           <h2 className="text-4xl md:text-6xl font-black text-white tracking-tighter mb-8" style={{ fontFamily: "'Righteous', system-ui, cursive" }}>
-              COLLABORATE IN REAL-TIME
-           </h2>
-           <p className="text-xl text-gray-300 max-w-2xl mx-auto leading-relaxed mb-12">
-              Visualize your ideas together. Jump into the built-in collaborative whiteboard during any chat to instantly sketch architecture diagrams, UI flows, or just brainstorm with your team.
-           </p>
-           
-           <div className="glass-card rounded-3xl p-4 max-w-4xl mx-auto transform hover:rotate-1 hover:scale-105 transition-all duration-700">
-             <div className="aspect-[21/9] bg-white rounded-2xl overflow-hidden flex flex-col shadow-2xl relative">
-               {/* Mock Toolbar */}
-               <div className="absolute top-4 left-4 right-4 h-12 bg-gray-100 rounded-xl border border-gray-200 flex items-center px-4 gap-4 shadow-sm z-10">
-                 <div className="w-8 h-8 rounded-lg bg-teal-100 text-teal-600 flex items-center justify-center"><PenTool className="w-5 h-5" /></div>
-                 <div className="w-8 h-8 rounded-lg hover:bg-gray-200 text-gray-500 flex items-center justify-center"><CubeTransparentIcon className="w-5 h-5" /></div>
-                 <div className="w-8 h-8 rounded-lg hover:bg-gray-200 text-gray-500 flex items-center justify-center"><span className="font-serif font-bold">T</span></div>
-               </div>
-               
-               {/* Mock Whiteboard Canvas */}
-               <div className="flex-1 bg-[url('https://www.transparenttextures.com/patterns/graphy.png')] relative overflow-hidden">
-                 {/* Drawn shapes */}
-                 <div className="absolute top-1/3 left-1/4 w-32 h-20 border-2 border-teal-500 bg-teal-50 rounded-lg flex items-center justify-center text-teal-800 font-semibold shadow-sm transform -rotate-2">
-                   Client
-                 </div>
-                 <svg className="absolute top-1/3 left-[calc(25%+8rem)] w-32 h-20 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                 </svg>
-                 <div className="absolute top-1/3 right-1/4 w-32 h-20 border-2 border-indigo-500 bg-indigo-50 rounded-lg flex items-center justify-center text-indigo-800 font-semibold shadow-sm transform rotate-1">
-                   Server
-                 </div>
-
-                 {/* Floating Chat bubbles */}
-                 <div className="absolute right-8 bottom-8 flex flex-col gap-3 animate-float z-20">
-                   <div className="bg-teal-600 text-white text-sm px-4 py-2 rounded-2xl rounded-br-sm shadow-lg max-w-xs">
-                     I just sketched out the auth flow on the board! ✍️
-                   </div>
-                   <div className="bg-gray-800 text-gray-200 text-sm px-4 py-2 rounded-2xl rounded-bl-sm shadow-lg max-w-xs self-start -ml-12">
-                     Looks perfect. Let's build it.
-                   </div>
-                 </div>
-               </div>
-             </div>
-           </div>
-        </div>
-      </section>
-
-      {/* Interactive Terminal CTA */}
-      <section className={`py-32 px-6 relative overflow-hidden transition-colors duration-1000 ${focusMode ? 'bg-[#050505]' : 'bg-gray-900'}`}>
-         {/* Background Elements */}
-         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full max-w-5xl pointer-events-none">
-            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-teal-500/10 rounded-full blur-[120px]"></div>
-         </div>
-
-         <div className={`relative z-10 max-w-3xl mx-auto transform transition-all duration-1000 ${focusMode ? 'opacity-90' : ''}`}>
-            <div className="text-center mb-12">
-               <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-4" style={{ fontFamily: "'Righteous', system-ui, cursive" }}>
-                  Ready to deploy your <span className="text-teal-400">workspace?</span>
-               </h2>
-               <p className="text-gray-400 text-lg">Initialize your distraction-free environment directly from the browser.</p>
-            </div>
-
-            {/* Terminal Window */}
-            <div className="bg-[#0D1117] rounded-xl border border-gray-800 shadow-2xl overflow-hidden font-mono text-sm md:text-base">
-               {/* Terminal Header */}
-               <div className="bg-[#161B22] px-4 py-3 flex items-center justify-between border-b border-gray-800">
-                  <div className="flex gap-2">
-                     <div className="w-3 h-3 rounded-full bg-[#FF5F56]"></div>
-                     <div className="w-3 h-3 rounded-full bg-[#FFBD2E]"></div>
-                     <div className="w-3 h-3 rounded-full bg-[#27C93F]"></div>
-                  </div>
-                  <div className="text-gray-500 text-xs text-center flex-1 pr-12">bash - enginet-cli</div>
-               </div>
-               
-               {/* Terminal Body */}
-               <div className="p-6 md:p-8 text-gray-300 flex flex-col gap-4 min-h-[250px]">
-                  <div className="flex items-start gap-3">
-                     <span className="text-teal-400 font-bold">➜</span>
-                     <span className="text-blue-400 font-bold">~</span>
-                     <span className="text-white">npx create-enginet-workspace@latest</span>
-                  </div>
-                  
-                  <div className="text-gray-500">
-                     Downloading dependencies...
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap mt-2">
-                     <span className="text-green-400 font-bold">?</span>
-                     <span className="font-bold text-white">Project name:</span>
-                     <div className="relative flex-1 min-w-[200px] flex items-center group">
-                        <input 
-                          type="text" 
-                          placeholder="my-awesome-team"
-                          value={ctaInput}
-                          onChange={(e) => setCtaInput(e.target.value)}
-                          onKeyDown={(e) => e.key === 'Enter' && handleDeploy()}
-                          disabled={isDeploying}
-                          className="bg-transparent text-teal-300 outline-none w-full border-b border-gray-700 focus:border-teal-400 transition-colors py-1 disabled:opacity-50"
-                          spellCheck={false}
-                        />
-                        {!isDeploying && ctaInput && (
-                           <span className="absolute right-0 text-gray-600 text-xs opacity-0 group-focus-within:opacity-100 transition-opacity">Press Enter</span>
-                        )}
-                     </div>
-                  </div>
-
-                  {isDeploying && (
-                     <div className="mt-4 flex flex-col gap-2">
-                        <div className="text-teal-400 animate-pulse">Initializing {ctaInput}...</div>
-                        <div className="w-full bg-gray-800 h-1.5 rounded-full overflow-hidden">
-                           <div className="bg-gradient-to-r from-teal-500 to-indigo-500 h-full animate-[progress_1.5s_ease-in-out_forwards]" style={{ width: '0%' }}>
-                              <style>{`
-                                @keyframes progress {
-                                   0% { width: 0%; }
-                                   50% { width: 70%; }
-                                   100% { width: 100%; }
-                                }
-                              `}</style>
-                           </div>
-                        </div>
-                     </div>
-                  )}
-
-                  {!isDeploying && (
-                     <div className="mt-8 pt-6 border-t border-gray-800 flex justify-end">
-                        <button 
-                          onClick={handleDeploy}
-                          className={`px-6 py-3 rounded font-bold text-sm transition-all flex items-center gap-2 group ${ctaInput.trim() ? 'bg-white text-gray-900 hover:bg-teal-400' : 'bg-gray-800 text-gray-500 cursor-not-allowed'}`}
-                        >
-                           Initialize <CpuChipIcon className={`w-4 h-4 ${ctaInput.trim() ? 'group-hover:rotate-180 transition-transform duration-500' : ''}`} />
-                        </button>
-                     </div>
-                  )}
-               </div>
-            </div>
-         </div>
-      </section>
-
-      {/* Footer - Professional & Creative */}
-      <footer className={`pt-24 pb-12 border-t transition-colors duration-1000 ${focusMode ? 'bg-[#020202] border-gray-900' : 'bg-gray-950 border-gray-800'}`}>
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-16">
-            <div className="col-span-2 lg:col-span-2">
-              <Link to="/" className="flex items-center gap-2 text-white hover:opacity-90 transition-opacity mb-6">
-                <EngiNetLogo className="w-8 h-8 text-teal-500" interactive={true} />
-                <span className="text-2xl font-bold tracking-tight" style={{ fontFamily: "'Righteous', system-ui, cursive" }}>EngiNet</span>
-              </Link>
-              <p className="text-gray-400 mb-8 max-w-sm text-sm leading-relaxed">
-                The modern workspace for developers. Connect, collaborate, and ship brilliant ideas without the noise.
+        <div className="max-w-6xl mx-auto relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
+            {/* Copy */}
+            <div>
+              <div className="section-label mb-6"><CommandLineIcon className="w-3 h-3" /> Code execution</div>
+              <h2 className="text-3xl md:text-5xl font-black font-display tracking-tight mb-6" style={{ color: t.text1 }}>
+                Run code<br /><span className="text-[#14B8A6]">inside the chat.</span>
+              </h2>
+              <p className="text-lg leading-relaxed mb-10" style={{ color: t.text2 }}>
+                Stop switching between your IDE, terminal, and Slack. Paste a snippet directly into the chat, hit Run, and everyone sees the output in under a second.
               </p>
-              <div className="flex items-center gap-4">
-                <a href="#" className="w-10 h-10 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-400 hover:bg-teal-500 hover:text-white hover:border-teal-500 transition-all"><CodeBracketIcon className="w-5 h-5"/></a>
-                <a href="#" className="w-10 h-10 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-400 hover:bg-teal-500 hover:text-white hover:border-teal-500 transition-all"><CommandLineIcon className="w-5 h-5"/></a>
-                <a href="#" className="w-10 h-10 rounded-full bg-gray-900 border border-gray-800 flex items-center justify-center text-gray-400 hover:bg-teal-500 hover:text-white hover:border-teal-500 transition-all"><CpuChipIcon className="w-5 h-5"/></a>
+
+              <div ref={stepsRef} className="flex flex-col gap-7">
+                {[
+                  { n: '01', title: 'Paste your code', desc: 'Use standard markdown code fences (``` javascript) in the message input. The block renders as an interactive executable pane for everyone.' },
+                  { n: '02', title: 'Hit Run', desc: 'The code is sent to the server, executed in an isolated child process with a 5-second timeout, then the result is captured.' },
+                  { n: '03', title: 'Everyone sees it', desc: 'The output broadcasts via Socket.IO to every member in the channel. No refresh, no copy-paste, just instant shared context.' },
+                ].map(s => (
+                  <div key={s.n} className="step-card flex gap-5 items-start">
+                    <div className="step-num">{s.n}</div>
+                    <div>
+                      <h4 className="font-bold mb-1" style={{ color: t.text1 }}>{s.title}</h4>
+                      <p className="text-sm leading-relaxed" style={{ color: t.text3 }}>{s.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Language pills */}
+              <div className="mt-10 flex flex-wrap gap-3">
+                <span className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border"
+                  style={{ background: 'rgba(247,223,30,0.06)', borderColor: 'rgba(247,223,30,0.2)', color: '#F7DF1E' }}>
+                  <span className="w-2 h-2 rounded-full bg-yellow-400" /> JavaScript
+                </span>
+                <span className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold border"
+                  style={{ background: 'rgba(53,114,165,0.08)', borderColor: 'rgba(53,114,165,0.25)', color: '#5da0d0' }}>
+                  <span className="w-2 h-2 rounded-full" style={{ background: '#3572A5' }} /> Python
+                </span>
               </div>
             </div>
-            
-            <div>
-              <h4 className="text-white font-bold mb-6 tracking-wide text-sm uppercase">Product</h4>
-              <ul className="space-y-4 text-sm text-gray-400">
-                <li><a href="#features" className="hover:text-teal-400 transition-colors">Features</a></li>
-                <li><a href="#focus" className="hover:text-teal-400 transition-colors">Focus Mode</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors flex items-center gap-2">Integrations <span className="bg-teal-500/20 text-teal-400 text-[10px] px-2 py-0.5 rounded-full font-bold">NEW</span></a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Pricing</a></li>
-              </ul>
+
+            {/* IDE Demo – always dark */}
+            <CodeDemo />
+          </div>
+        </div>
+      </section>
+
+      {/* ── Workflow / Whiteboard ────────────────────────────────────────── */}
+      <section id="workflow" className="py-24 px-6 relative overflow-hidden" style={{ background: t.base }}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="glow-orb-indigo" style={{ bottom: '0%', left: '5%' }} />
+        </div>
+
+        <div className="max-w-6xl mx-auto relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Whiteboard mock */}
+            <div className="order-2 lg:order-1">
+              <div className="rounded-2xl overflow-hidden border"
+                style={{ background: '#0B1220', borderColor: 'rgba(255,255,255,0.08)', boxShadow: '0 24px 64px rgba(0,0,0,0.5)' }}>
+                {/* Always dark – simulates the actual app */}
+                <div className="flex items-center gap-3 px-4 py-3 border-b" style={{ background: '#0D1525', borderColor: 'rgba(255,255,255,0.06)' }}>
+                  <div className="flex gap-1.5">
+                    <div className="w-3 h-3 rounded-full" style={{ background: '#FF5F56' }} />
+                    <div className="w-3 h-3 rounded-full" style={{ background: '#FFBD2E' }} />
+                    <div className="w-3 h-3 rounded-full" style={{ background: '#27C93F' }} />
+                  </div>
+                  <div className="flex items-center gap-2 ml-2">
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(20,184,166,0.12)', color: '#14B8A6' }}>
+                      <PencilIcon className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ color: '#3D5166' }}>
+                      <CpuChipIcon className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                  <span className="ml-auto text-[11px] font-mono-code" style={{ color: '#233044' }}>collaborative-whiteboard</span>
+                </div>
+                <div className="aspect-[4/3] relative overflow-hidden" style={{ background: '#07101F' }}>
+                  <div className="absolute inset-0" style={{
+                    backgroundImage: 'radial-gradient(rgba(255,255,255,0.025) 1px, transparent 1px)',
+                    backgroundSize: '24px 24px',
+                  }} />
+                  {/* Architecture diagram */}
+                  <div className="absolute top-[28%] left-[8%] px-5 py-3 rounded-xl border font-mono-code text-xs font-bold"
+                    style={{ background: 'rgba(20,184,166,0.08)', borderColor: 'rgba(20,184,166,0.3)', color: '#14B8A6', transform: 'rotate(-2deg)' }}>Client</div>
+                  <svg className="absolute top-[24%] left-[26%] w-20 h-12 overflow-visible" fill="none">
+                    <path d="M0 24 Q40 24 76 24" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" strokeDasharray="4 4" markerEnd="url(#a1)" />
+                    <defs><marker id="a1" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="rgba(255,255,255,0.25)" /></marker></defs>
+                  </svg>
+                  <div className="absolute top-[28%] left-[48%] px-5 py-3 rounded-xl border font-mono-code text-xs font-bold"
+                    style={{ background: 'rgba(129,140,248,0.08)', borderColor: 'rgba(129,140,248,0.3)', color: '#818CF8', transform: 'rotate(1deg)' }}>Server</div>
+                  <svg className="absolute top-[24%] left-[66%] w-20 h-12 overflow-visible" fill="none">
+                    <path d="M0 24 Q40 24 76 24" stroke="rgba(255,255,255,0.12)" strokeWidth="1.5" strokeDasharray="4 4" markerEnd="url(#a2)" />
+                    <defs><marker id="a2" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0 0 L6 3 L0 6 z" fill="rgba(255,255,255,0.25)" /></marker></defs>
+                  </svg>
+                  <div className="absolute top-[28%] right-[4%] px-5 py-3 rounded-xl border font-mono-code text-xs font-bold"
+                    style={{ background: 'rgba(251,146,60,0.08)', borderColor: 'rgba(251,146,60,0.3)', color: '#FB923C', transform: 'rotate(-1deg)' }}>DB</div>
+                  {/* Chat bubbles */}
+                  <div className="absolute bottom-5 right-5 flex flex-col gap-2 animate-float" style={{ animationDuration: '8s' }}>
+                    <div className="px-4 py-2 rounded-2xl rounded-br-sm text-xs font-medium max-w-[190px]"
+                      style={{ background: '#14B8A6', color: '#060B14' }}>Auth flow sketched! ✍️</div>
+                    <div className="px-4 py-2 rounded-2xl rounded-bl-sm text-xs font-medium max-w-[190px] self-start"
+                      style={{ background: '#1A2233', color: '#9AA5B4' }}>Ship it 🚀</div>
+                  </div>
+                  {/* Cursor */}
+                  <div className="absolute top-[52%] left-[36%] animate-float" style={{ animationDelay: '1.5s', animationDuration: '6s' }}>
+                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                      <path d="M1 1L11 5L5 7L3 11L1 1Z" fill="#14B8A6" stroke="#060B14" strokeWidth="0.5" />
+                    </svg>
+                    <div className="absolute -top-5 left-3 px-1.5 py-0.5 rounded text-[9px] font-bold whitespace-nowrap" style={{ background: '#14B8A6', color: '#060B14' }}>Anubhav</div>
+                  </div>
+                </div>
+              </div>
             </div>
-            
-            <div>
-              <h4 className="text-white font-bold mb-6 tracking-wide text-sm uppercase">Resources</h4>
-              <ul className="space-y-4 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Documentation</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">API Reference</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Community</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Blog</a></li>
-              </ul>
-            </div>
-            
-            <div>
-              <h4 className="text-white font-bold mb-6 tracking-wide text-sm uppercase">Company</h4>
-              <ul className="space-y-4 text-sm text-gray-400">
-                <li><a href="#" className="hover:text-teal-400 transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Careers</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-teal-400 transition-colors">Legal</a></li>
-              </ul>
+
+            {/* Copy */}
+            <div className="order-1 lg:order-2">
+              <div className="section-label mb-6"><PencilIcon className="w-3 h-3" /> Collaborative whiteboard</div>
+              <h2 className="text-3xl md:text-5xl font-black font-display tracking-tight mb-6" style={{ color: t.text1 }}>
+                Sketch ideas<br /><span style={{ color: '#818CF8' }}>in real-time.</span>
+              </h2>
+              <p className="text-lg leading-relaxed mb-8" style={{ color: t.text2 }}>
+                Every chat has a built-in collaborative whiteboard. Jump in, sketch your architecture diagram or UI flow, and your teammates see every stroke as it happens — no Figma, no Miro, no tab switching.
+              </p>
+              <div className="flex flex-col gap-3">
+                {[
+                  ['Real-time multi-user canvas via Yjs CRDTs', '#818CF8'],
+                  ['Shapes, arrows, freehand drawing, and text', '#818CF8'],
+                  ['Persistent per community channel', '#818CF8'],
+                ].map(([item, color]) => (
+                  <div key={item} className="flex items-center gap-3 text-sm" style={{ color: t.text2 }}>
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                    {item}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
-          
-          <div className="w-full border-t border-gray-800/50 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-gray-500 text-sm">© {new Date().getFullYear()} EngiNet Inc. Built for builders.</p>
-            <div className="flex gap-6 text-sm text-gray-500">
-               <a href="#" className="hover:text-teal-400 transition-colors">Privacy Policy</a>
-               <a href="#" className="hover:text-teal-400 transition-colors">Terms of Service</a>
+        </div>
+      </section>
+
+      {/* ── CTA ─────────────────────────────────────────────────────────── */}
+      <section className="py-24 px-6 relative overflow-hidden" style={surface1Style}>
+        <div className="absolute inset-0 pointer-events-none">
+          <div className="glow-orb-teal" style={{ top: '50%', left: '50%', transform: 'translate(-50%,-50%)', opacity: 0.5, width: '800px', height: '800px' }} />
+        </div>
+
+        <div className="max-w-2xl mx-auto relative z-10 text-center">
+          <div className="section-label mx-auto w-fit mb-8"><BoltIcon className="w-3 h-3" /> Get started</div>
+          <h2 className="text-4xl md:text-5xl font-black font-display tracking-tight mb-4" style={{ color: t.text1 }}>
+            Ready to ship<br /><span className="text-[#14B8A6]">faster together?</span>
+          </h2>
+          <p className="text-lg mb-12" style={{ color: t.text3 }}>
+            Create your workspace and invite your team in under 30 seconds.
+          </p>
+
+          {/* Terminal window – always dark */}
+          <div className="rounded-2xl overflow-hidden border text-left shadow-[0_24px_60px_rgba(0,0,0,0.4)]"
+            style={{ background: '#0B1220', borderColor: 'rgba(255,255,255,0.08)' }}>
+            <div className="flex items-center gap-2 px-4 py-3 border-b" style={{ background: '#0D1525', borderColor: 'rgba(255,255,255,0.06)' }}>
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full" style={{ background: '#FF5F56' }} />
+                <div className="w-3 h-3 rounded-full" style={{ background: '#FFBD2E' }} />
+                <div className="w-3 h-3 rounded-full" style={{ background: '#27C93F' }} />
+              </div>
+              <span className="ml-2 text-[11px] font-mono-code" style={{ color: '#3D5166' }}>bash — enginet-cli</span>
+            </div>
+            <div className="p-6 font-mono-code text-[13px] flex flex-col gap-4 min-h-[190px]">
+              <div className="flex items-center gap-3">
+                <span style={{ color: '#14B8A6' }}>➜</span>
+                <span style={{ color: '#3D5166' }}>~</span>
+                <span style={{ color: '#CDD3DE' }}>npx create-enginet-workspace@latest</span>
+              </div>
+              <div style={{ color: '#233044' }}>Initializing workspace...</div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <span style={{ color: '#34D399' }}>?</span>
+                <span style={{ color: '#CDD3DE' }}>Workspace name:</span>
+                <div className="relative flex-1 min-w-[180px]">
+                  <input type="text" placeholder="my-engineering-team"
+                    value={ctaInput}
+                    onChange={e => setCtaInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && handleDeploy()}
+                    disabled={isDeploying}
+                    className="w-full bg-transparent outline-none border-b py-1 transition-colors font-mono-code disabled:opacity-50"
+                    style={{ color: '#14B8A6', borderColor: ctaInput ? 'rgba(20,184,166,0.5)' : 'rgba(255,255,255,0.08)' }}
+                    spellCheck={false} />
+                </div>
+              </div>
+              {isDeploying && (
+                <div className="flex flex-col gap-3">
+                  <div className="animate-pulse" style={{ color: '#14B8A6' }}>Creating {ctaInput}...</div>
+                  <div className="w-full rounded-full overflow-hidden" style={{ background: '#111827', height: '2px' }}>
+                    <div className="h-full rounded-full animate-progress" style={{ background: 'linear-gradient(90deg,#14B8A6,#818CF8)' }} />
+                  </div>
+                </div>
+              )}
+              {!isDeploying && (
+                <div className="flex justify-end mt-4 pt-4 border-t" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+                  <button onClick={handleDeploy} disabled={!ctaInput.trim()}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all"
+                    style={{ background: ctaInput.trim() ? '#14B8A6' : '#111827', color: ctaInput.trim() ? '#060B14' : '#233044', cursor: ctaInput.trim() ? 'pointer' : 'not-allowed' }}>
+                    Initialize workspace <ArrowRightIcon className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ──────────────────────────────────────────────────────── */}
+      <footer className="py-16 px-6 border-t" style={{ background: t.footerBg, borderColor: t.border }}>
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-10 mb-12">
+            <div className="col-span-2">
+              <Link to="/" className="flex items-center gap-2.5 mb-5 w-fit">
+                <Logo className="w-7 h-7 text-[#14B8A6]" />
+                <span className="text-[18px] font-black font-display" style={{ color: t.text1 }}>EngiNet</span>
+              </Link>
+              <p className="text-sm leading-relaxed max-w-xs" style={{ color: t.text3 }}>
+                The modern chat platform for engineering teams. Collaborate, execute code, and ship faster — together.
+              </p>
+            </div>
+            {[
+              { title: 'Product', links: ['Features', 'Code Execution', 'Whiteboard', 'Pricing'] },
+              { title: 'Developers', links: ['Docs', 'API Reference', 'GitHub', 'Changelog'] },
+              { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
+            ].map(col => (
+              <div key={col.title}>
+                <h4 className="text-xs font-bold uppercase tracking-widest mb-5" style={{ color: t.text3 }}>{col.title}</h4>
+                <ul className="flex flex-col gap-3">
+                  {col.links.map(l => (
+                    <li key={l}>
+                      <a href="#" className="text-sm hover:text-[#14B8A6] transition-colors" style={{ color: t.text2 }}>
+                        {l}{l === 'Code Execution' && <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(20,184,166,0.1)', color: '#14B8A6' }}>NEW</span>}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <div className="pt-8 border-t flex flex-col md:flex-row items-center justify-between gap-4" style={{ borderColor: t.border }}>
+            <p className="text-xs" style={{ color: t.text3 }}>© {new Date().getFullYear()} EngiNet. Built for builders.</p>
+            <div className="flex gap-6 text-xs" style={{ color: t.text3 }}>
+              <a href="#" className="hover:text-[#14B8A6] transition-colors">Privacy</a>
+              <a href="#" className="hover:text-[#14B8A6] transition-colors">Terms</a>
             </div>
           </div>
         </div>
