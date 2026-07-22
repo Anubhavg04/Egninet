@@ -6,8 +6,43 @@ import { KeyIcon as KeyRound, UserIcon as User, ArrowRightIcon as ArrowRight, Sp
 import { CodeBracketIcon, PaintBrushIcon, CubeTransparentIcon, CommandLineIcon, CpuChipIcon, BeakerIcon, WrenchScrewdriverIcon, SwatchIcon } from '@heroicons/react/24/solid';
 import Whiteboard from './components/Whiteboard';
 import Landing from './components/Landing';
+import ExecutableCodeBlock from './components/ExecutableCodeBlock';
 
 const socket = io('http://localhost:3005');
+
+const renderMessageText = (text: string, messageId: string, roomId: string) => {
+  if (!text) return null;
+  const parts = [];
+  const codeBlockRegex = /```(\w*)\n([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match;
+  let blockIndex = 0;
+
+  while ((match = codeBlockRegex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(<span key={`text-${lastIndex}`} className="whitespace-pre-wrap break-words">{text.slice(lastIndex, match.index)}</span>);
+    }
+    parts.push(
+      <ExecutableCodeBlock
+        key={`code-${match.index}`}
+        language={match[1] || 'text'}
+        code={match[2]}
+        messageId={messageId}
+        roomId={roomId}
+        blockIndex={blockIndex}
+        socket={socket}
+      />
+    );
+    lastIndex = match.index + match[0].length;
+    blockIndex++;
+  }
+
+  if (lastIndex < text.length) {
+    parts.push(<span key={`text-${lastIndex}`} className="whitespace-pre-wrap break-words">{text.slice(lastIndex)}</span>);
+  }
+
+  return parts;
+};
 
 const EngiNetLogo = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -829,7 +864,7 @@ const Dashboard = () => {
                               <FileText className="w-4 h-4" /> Download Attachment
                             </a>
                           )}
-                          {msg.text}
+                          {renderMessageText(msg.text, msg.id, msg.communityId)}
                         </div>
                       </div>
                     </div>
