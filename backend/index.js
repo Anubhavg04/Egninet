@@ -284,6 +284,100 @@ app.get('/api/dms', authenticateToken, async (req, res) => {
 const whiteboardStates = {};
 
 // Socket.IO Logic
+// Socket.IO Logic
+// Execute Code endpoint (Local Execution using child_process)
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const execAsync = promisify(exec);
+const fsPromises = require('fs').promises;
+
+app.post('/api/execute', authenticateToken, async (req, res) => {
+  try {
+    const { language, code } = req.body;
+    if (!language || !code) {
+      return res.status(400).json({ error: 'Language and code are required' });
+    }
+
+    const lang = language.toLowerCase();
+    let output = '';
+    let isError = false;
+    
+    // For Javascript and Python, we can just save to a temp file and run it
+    const tempFile = path.join(__dirname, `temp_${Date.now()}_${Math.floor(Math.random() * 1000)}`);
+    
+    try {
+      if (lang === 'javascript' || lang === 'js') {
+        const filePath = `${tempFile}.js`;
+        await fsPromises.writeFile(filePath, code);
+        try {
+          const { stdout, stderr } = await execAsync(`node ${filePath}`, { timeout: 5000 });
+          output = stdout || stderr;
+        } catch (execErr) {
+          isError = true;
+          output = execErr.killed ? 'Execution timed out after 5 seconds (Infinite loop?)' : (execErr.stderr || execErr.stdout || execErr.message);
+        } finally {
+          await fsPromises.unlink(filePath).catch(() => {});
+        }
+      } else if (lang === 'python' || lang === 'py') {
+        const filePath = `${tempFile}.py`;
+        await fsPromises.writeFile(filePath, code);
+        try {
+          const { stdout, stderr } = await execAsync(`python ${filePath}`, { timeout: 5000 });
+          output = stdout || stderr;
+        } catch (execErr) {
+          isError = true;
+          output = execErr.killed ? 'Execution timed out after 5 seconds (Infinite loop?)' : (execErr.stderr || execErr.stdout || execErr.message);
+        } finally {
+          await fsPromises.unlink(filePath).catch(() => {});
+        }
+      } else {
+        return res.status(400).json({ error: `Language '${language}' is not supported for local execution yet.` });
+      }
+
+      const resultPayload = {
+        output: output,
+        stderr: isError ? output : '',
+        code: isError ? 1 : 0
+      };
+
+      if (req.body.roomId && req.body.messageId && typeof req.body.blockIndex !== 'undefined') {
+        io.to(String(req.body.roomId)).emit('code_execution_result', {
+          messageId: req.body.messageId,
+          blockIndex: req.body.blockIndex,
+          output: output,
+          isError: isError
+        });
+      }
+
+      res.json({ run: resultPayload });
+
+    } catch (err) {
+      console.error('File operation error:', err);
+      if (req.body.roomId && req.body.messageId && typeof req.body.blockIndex !== 'undefined') {
+        io.to(String(req.body.roomId)).emit('code_execution_result', {
+          messageId: req.body.messageId,
+          blockIndex: req.body.blockIndex,
+          output: 'Failed to process file',
+          isError: true
+        });
+      }
+      res.status(500).json({ error: 'Failed to process file' });
+    }
+
+  } catch (err) {
+    console.error('Execute error:', err);
+    if (req.body.roomId && req.body.messageId && typeof req.body.blockIndex !== 'undefined') {
+      io.to(String(req.body.roomId)).emit('code_execution_result', {
+        messageId: req.body.messageId,
+        blockIndex: req.body.blockIndex,
+        output: 'Failed to execute code',
+        isError: true
+      });
+    }
+    res.status(500).json({ error: 'Failed to execute code' });
+  }
+});
+
 io.on('connection', (socket) => {
   console.log('User connected:', socket.id);
 
@@ -377,6 +471,10 @@ io.on('connection', (socket) => {
 
   socket.on('whiteboard_toggle', ({ roomId, isOpen }) => {
     socket.to(String(roomId)).emit('whiteboard_toggle', { isOpen });
+  });
+
+  socket.on('code_execution_start', (data) => {
+    socket.to(String(data.roomId)).emit('code_execution_start', data);
   });
 
   socket.on('disconnect', () => {
